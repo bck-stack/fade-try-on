@@ -297,6 +297,19 @@ async function handleAdmin(request, env, deps, path) {
     }
     return json({ mock: isMock(env), bookingMock: bookingMock(env), storage: store.enabled, units });
   }
+
+  // Template catalogue (listing costs no units), for pinning LOOK_TEMPLATES.
+  if (path === '/api/admin/templates') {
+    if (isMock(env)) return errorJson('Templates are only listed in real mode.', 409);
+    const youcam = deps.youcam || createYouCam(env);
+    const out = {};
+    for (const feature of ['hair', 'beard']) {
+      out[feature] = (await youcam.listTemplates(feature, { maxPages: 20 })).map((t) => ({
+        id: t.id, title: t.title, category: t.category_name, keepUsersColor: t.keep_users_color,
+      }));
+    }
+    return json(out);
+  }
   if (path === '/api/admin/looks' && request.method === 'GET') {
     return json({ looks: await store.list() });
   }
