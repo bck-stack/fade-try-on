@@ -82,13 +82,13 @@ export function customerApp() {
     }
   }
 
-  // Resize to <= 1024px on the long side (YouCam hairstyle limit) and re-encode as
-  // JPEG. Re-encoding also drops EXIF, including any GPS location.
+  // Resize to <= 1000px on the long side (hairstyle needs <= 1024, beard < 1024) and
+  // re-encode as JPEG. Re-encoding also drops EXIF, including any GPS location.
   async function preparePhoto(blob) {
     const bmp = await loadBitmap(blob);
     const w0 = bmp.width, h0 = bmp.height;
     if (Math.min(w0, h0) < 320) throw new Error('That photo is very small. Try a sharper one.');
-    const scale = Math.min(1, 1024 / Math.max(w0, h0));
+    const scale = Math.min(1, 1000 / Math.max(w0, h0));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(w0 * scale);
     canvas.height = Math.round(h0 * scale);

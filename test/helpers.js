@@ -62,7 +62,7 @@ export function fakeYouCam(overrides = {}) {
     taskCounter: 0,
     hairTemplates: [
       [{ id: 'hair-long', title: 'Long Layers', category_name: 'Women' }, { id: 'hair-bob', title: 'Curly Bob', category_name: 'Women' }],
-      [{ id: 'hair-buzz', title: 'Buzz Cut', category_name: 'Men' }, { id: 'hair-fade', title: 'High Skin Fade', category_name: 'Men' }],
+      [{ id: 'hair-buzz', title: 'Buzz Cut', category_name: 'Men' }, { id: 'hair-fade', title: 'High Skin Fade', category_name: 'Men', keep_users_color: true }],
     ],
     beardTemplates: [[{ id: 'beard-goatee', title: 'Goatee' }, { id: 'beard-box', title: 'Short Boxed Beard' }, { id: 'beard-stub', title: 'Stubble' }]],
     taskResult: () => ({ task_status: 'success', error: null, results: { url: `https://results.example/out/${state.taskCounter}.jpg` } }),

@@ -21,7 +21,7 @@ import { customerPage, adminPage } from './page.js';
 import { json, errorJson, readJson, parseDataUrl, toDataUrl, jpegSize, timingSafeEqual, base64ToBytes } from './util.js';
 
 const MAX_UPLOAD_BYTES = 3 * 1024 * 1024; // JSON body with a base64 image
-const MAX_LONG_SIDE = 1024; // AI Hairstyle Generator: long side <= 1024
+const MAX_LONG_SIDE = 1000; // hairstyle: long side <= 1024; beard: long side < 1024
 const DEFAULT_TRY_LIMIT = 8;
 const SERVICES_TTL_MS = 5 * 60 * 1000;
 
@@ -142,10 +142,10 @@ async function handleTryOn(request, env, deps, ctx) {
   const image = parseDataUrl(body.image);
   if (!image) return errorJson('Please send a JPEG photo.', 400);
   if (!isMock(env)) {
-    // YouCam's hairstyle feature takes JPEG only, long side <= 1024 (the page resizes for you).
+    // YouCam's hairstyle feature takes JPEG only; beard wants the long side under 1024 (the page resizes for you).
     const size = jpegSize(image.bytes);
     if (image.contentType !== 'image/jpeg' || !size) return errorJson('Please send a JPEG photo.', 400);
-    if (Math.max(size.width, size.height) > MAX_LONG_SIDE) return errorJson('Photo is too large; the page should resize it to 1024px.', 400);
+    if (Math.max(size.width, size.height) > MAX_LONG_SIDE) return errorJson('Photo is too large; the page should resize it to 1000px.', 400);
   }
 
   const quota = new TryQuota(env.LOOKS, tryLimit(env));

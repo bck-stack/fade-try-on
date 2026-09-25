@@ -10,7 +10,7 @@ import { FakeKV, fakeYouCam, jpegDataUrl } from './helpers.js';
 beforeEach(() => resetCaches());
 
 const booking = new MockBookingClient({ today: '2026-09-25', services: SERVICES });
-const selfie = jpegDataUrl(768, 1024);
+const selfie = jpegDataUrl(750, 1000); // what the page sends: long side 1000px
 
 function env(extra = {}) {
   return { YOUCAM_MOCK: '1', ADMIN_TOKEN: 'marcus-secret', LOOKS: new FakeKV(), ...extra };
@@ -111,7 +111,7 @@ test('real mode: tasks are deleted even when a later step fails', async () => {
   assert.deepEqual(fake.calls.filter((c) => c.path === '/s2s/v2.0/task/delete').map((c) => c.body.task_id), ['TASK-1', 'TASK-2']);
 });
 
-test('real mode: only JPEG up to 1024px is sent on to YouCam', async () => {
+test('real mode: only JPEG up to 1000px is sent on to YouCam', async () => {
   const e = env({ YOUCAM_MOCK: '0', YOUCAM_API_KEY: 'test-key' });
   const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
   assert.equal((await call(e, {}, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: png })).res.status, 400);

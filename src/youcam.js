@@ -196,6 +196,13 @@ export class YouCamClient {
     return id;
   }
 
+  // True only for templates we've listed and that declare keep_users_color; pinned ids
+  // we haven't seen get the API default.
+  keepsUsersColor(templateId) {
+    const list = this.templateCache.get('list:hair') || [];
+    return list.some((t) => t.id === templateId && t.keep_users_color === true);
+  }
+
   // Step 3.
   async runTask(feature, input) {
     const f = FEATURES[feature];
@@ -267,6 +274,8 @@ export class YouCamClient {
         const input = { ...source };
         if (step.refUrl) input.ref_file_url = step.refUrl;
         else input.template_id = step.templateId || (await this.resolveTemplate(step.feature, step.keywords || []));
+        // Keep the customer's own hair colour where the template allows it (v2.1 `hair_color`).
+        if (step.feature === 'hair' && input.template_id && this.keepsUsersColor(input.template_id)) input.hair_color = 'src';
         const taskId = await this.runTask(step.feature, input);
         taskIds.push(taskId);
         resultUrl = await this.waitForTask(step.feature, taskId);

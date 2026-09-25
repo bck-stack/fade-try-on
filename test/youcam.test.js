@@ -35,7 +35,8 @@ test('hairstyle look: upload, run, poll, download, per the documented shapes', a
 
   // 3. Template picked by keyword ("skin fade") across paginated template lists.
   const run = fake.calls.find((c) => c.method === 'POST' && c.path === '/s2s/v2.1/task/hair-transfer');
-  assert.deepEqual(run.body, { src_file_id: 'FILE-1', template_id: 'hair-fade' });
+  // keep_users_color template -> keep the customer's own hair colour.
+  assert.deepEqual(run.body, { src_file_id: 'FILE-1', template_id: 'hair-fade', hair_color: 'src' });
   const templatePages = fake.calls.filter((c) => c.path === '/s2s/v2.1/task/template/hair-transfer');
   assert.equal(templatePages.length, 2);
   assert.equal(templatePages[0].query.page_size, '20');
@@ -49,6 +50,15 @@ test('hairstyle look: upload, run, poll, download, per the documented shapes', a
   assert.equal(out.contentType, 'image/jpeg');
   assert.deepEqual(out.taskIds, ['TASK-1']);
   assert.equal(sniffImageType(out.bytes), 'image/jpeg');
+});
+
+test('hair_color is only sent for templates that declare keep_users_color', async () => {
+  const fake = fakeYouCam();
+  const yc = client(fake);
+  const look = getLook('kids-crew-cut'); // keywords resolve to 'hair-buzz', no keep_users_color
+  await yc.applyLook({ lookId: look.id, steps: planSteps(look, {}) }, selfie());
+  const run = fake.calls.find((c) => c.method === 'POST' && c.path === '/s2s/v2.1/task/hair-transfer');
+  assert.deepEqual(run.body, { src_file_id: 'FILE-1', template_id: 'hair-buzz' });
 });
 
 test('template list is fetched once and cached per client', async () => {
@@ -76,7 +86,7 @@ test('Cut + Beard chains: beard step runs on the hairstyle result URL', async ()
 
   const hair = fake.calls.find((c) => c.method === 'POST' && c.path === '/s2s/v2.1/task/hair-transfer');
   const beard = fake.calls.find((c) => c.method === 'POST' && c.path === '/s2s/v2.0/task/beard-style');
-  assert.deepEqual(hair.body, { src_file_id: 'FILE-1', template_id: 'hair-fade' });
+  assert.deepEqual(hair.body, { src_file_id: 'FILE-1', template_id: 'hair-fade', hair_color: 'src' });
   assert.deepEqual(beard.body, { src_file_url: 'https://results.example/out/1.jpg', template_id: 'beard-box' });
   assert.equal(fake.calls.filter((c) => c.path === '/s2s/v2.0/file').length, 1, 'selfie uploaded once');
   assert.deepEqual(out.taskIds, ['TASK-1', 'TASK-2']);

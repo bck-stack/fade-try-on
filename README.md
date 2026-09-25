@@ -53,7 +53,7 @@ The looks live in [`src/looks.js`](src/looks.js). Each hairstyle step can use:
 ```mermaid
 flowchart LR
   subgraph Phone["Customer's phone"]
-    UI["Try-On page<br/>(resize to 1024px JPEG,<br/>strip EXIF, cache results)"]
+    UI["Try-On page<br/>(resize to 1000px JPEG,<br/>strip EXIF, cache results)"]
   end
   subgraph Worker["Cloudflare Worker (src/worker.js)"]
     API["/api/try-on<br/>/api/availability<br/>/api/book"]
@@ -166,9 +166,10 @@ Settings (`[vars]` in `wrangler.toml`):
 
 - Results are cached in the browser per (photo hash, look), so going back to a look you've tried is free (and survives a reload if you pick the same photo again).
 - Each visitor gets `TRY_LIMIT` try-ons a day (counted only when a try-on succeeds). The count is kept in KV under a hash of IP + browser, never the raw IP.
-- The page resizes photos to 1024px JPEG before upload, which matches the hairstyle limits and keeps uploads small.
+- The page resizes photos to 1000px JPEG before upload, which fits both the hairstyle (≤ 1024px) and beard (< 1024px) limits and keeps uploads small.
 - "Cut + Beard" uploads the selfie once and runs the beard step on the hairstyle result URL.
 - The template list is fetched once per Worker instance (listing costs no units).
+- Where a hairstyle template allows it (`keep_users_color`), the Worker asks for the customer's own hair colour (`hair_color: "src"`), so a cut preview doesn't come with a surprise dye job.
 - Errors are specific: no face, head turned, hair too short, out of units, and so on, each with something the customer can do about it.
 
 ## Privacy
