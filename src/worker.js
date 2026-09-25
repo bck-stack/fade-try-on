@@ -23,6 +23,8 @@ import { json, errorJson, readJson, parseDataUrl, toDataUrl, jpegSize, timingSaf
 const MAX_UPLOAD_BYTES = 3 * 1024 * 1024; // JSON body with a base64 image
 const MAX_LONG_SIDE = 1000; // hairstyle: long side <= 1024; beard: long side < 1024
 const DEFAULT_TRY_LIMIT = 8;
+// Whole-site cap per UTC day, so a run of visitors (or one visitor rotating IPs) can't drain the unit balance.
+const DEFAULT_DAILY_TRY_LIMIT = 40;
 const SERVICES_TTL_MS = 5 * 60 * 1000;
 
 // Per-isolate caches. Nothing here holds customer images.
@@ -44,7 +46,15 @@ export function bookingClient(env, deps = {}) {
     mockBooking ||= new MockBookingClient({ services: SERVICES });
     return mockBooking;
   }
-  return new BookingClient({ url: env.BOOKING_MCP_URL || BOOKING_MCP_URL, fetch: deps.mcpFetch });
+  // A Worker can't fetch another *.workers.dev Worker on the same account over the
+  // public URL, so in production the MCP calls go through the BOOKING service binding.
+  const bindingFetch = env.BOOKING ? (input, init) => env.BOOKING.fetch(new Request(input, init)) : undefined;
+  return new BookingClient({ url: env.BOOKING_MCP_URL || BOOKING_MCP_URL, fetch: deps.mcpFetch || bindingFetch });
+}
+
+function dailyTryLimit(env) {
+  const n = Number(env.DAILY_TRY_LIMIT);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_DAILY_TRY_LIMIT;
 }
 
 function tryLimit(env) {
@@ -158,6 +168,11 @@ async function handleTryOn(request, env, deps, ctx) {
     );
   }
 
+  const siteQuota = new TryQuota(env.LOOKS, dailyTryLimit(env));
+  if ((await siteQuota.left('site')) <= 0) {
+    return errorJson("Try-on has hit today's limit. You can still book, and Marcus will talk looks through in the chair.", 429, { triesLeft: 0 });
+  }
+
   let youcam;
   try {
     youcam = deps.youcam || createYouCam(env, { templateCache });
@@ -176,6 +191,7 @@ async function handleTryOn(request, env, deps, ctx) {
     // The selfie and result are deleted from YouCam once we have the bytes.
     cleanup(result.taskIds);
     const triesLeft = await quota.spend(visitor);
+    await siteQuota.spend('site');
     return json({ lookId: look.id, image: toDataUrl(result.bytes, result.contentType), triesLeft, mock: isMock(env) });
   } catch (err) {
     cleanup(err.taskIds);

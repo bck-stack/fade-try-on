@@ -89,6 +89,15 @@ test('config shows live prices from get_business_info', async () => {
   assert.equal(data.looks.find((l) => l.id === 'kids-crew-cut').service, 'Kids Cut (under 12)');
 });
 
+test('MCP calls go through the BOOKING service binding when one is bound', async () => {
+  const fake = fakeBookingServer();
+  const seen = [];
+  const BOOKING = { fetch: (req) => { seen.push(req); return fake.fetch(req); } };
+  const { data } = await call(env({ BOOKING }), {}, 'GET', '/api/config');
+  assert.equal(data.bookingOnline, true);
+  assert.ok(seen.length > 0 && seen.every((r) => r instanceof Request && r.url.endsWith('/mcp')));
+});
+
 test('config falls back to the local price list when the diary is down', async () => {
   const { data } = await call(env(), { mcpFetch: async () => { throw new Error('down'); } }, 'GET', '/api/config');
   assert.equal(data.bookingOnline, false);

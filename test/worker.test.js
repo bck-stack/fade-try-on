@@ -77,6 +77,17 @@ test('tries are capped per visitor per day; other visitors are unaffected', asyn
   assert.ok([...e.LOOKS.data.keys()].every((k) => !k.includes('203.0.113.7')));
 });
 
+test('a whole-site daily cap stops visitors on different IPs from draining units', async () => {
+  const e = env({ TRY_LIMIT: '5', DAILY_TRY_LIMIT: '2' });
+  for (const ip of ['198.51.100.1', '198.51.100.2']) {
+    const ok = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: selfie }, { headers: { 'cf-connecting-ip': ip } });
+    assert.equal(ok.res.status, 200);
+  }
+  const blocked = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: selfie }, { headers: { 'cf-connecting-ip': '198.51.100.3' } });
+  assert.equal(blocked.res.status, 429);
+  assert.match(blocked.data.error, /today's limit/);
+});
+
 test('failed try-ons do not use up a try', async () => {
   const e = env({ TRY_LIMIT: '1' });
   const failing = { youcam: { applyLook: async () => { throw new YouCamError('error_no_face'); }, deleteTask: async () => true } };

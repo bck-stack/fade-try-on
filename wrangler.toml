@@ -2,6 +2,8 @@
 # Deploy with `npx wrangler deploy` after filling in the placeholders below.
 
 name = "fade-try-on"
+# SiteCheck account (never the Offera account).
+account_id = "8782fc2a0c9c441983ce9cde2529959e"
 main = "src/worker.js"
 compatibility_date = "2026-09-01"
 
@@ -14,6 +16,8 @@ BOOKING_MOCK = "0"
 BOOKING_MCP_URL = "https://chair-ready-voice.sitecheck-api.workers.dev/mcp"
 # Free try-ons per visitor per day (each real try costs 2-4 YouCam units).
 TRY_LIMIT = "8"
+# Try-ons for the whole site per UTC day (1,000 hackathon units ≈ 250-500 tries).
+DAILY_TRY_LIMIT = "40"
 # Optional: use photos of Marcus's own cuts as hairstyle references, per look id.
 # LOOK_REFS = '{"high-skin-fade":"https://example.com/refs/high-skin-fade.jpg"}'
 # Optional: pin exact YouCam template ids per look (see docs/API-NOTES.md).
@@ -30,8 +34,14 @@ TRY_LIMIT = "8"
 # then paste the ids here.
 [[kv_namespaces]]
 binding = "LOOKS"
-id = "00000000000000000000000000000000"
-preview_id = "11111111111111111111111111111111"
+id = "dad42e2053ae456a8e7d21461b5d8885"
+preview_id = "8e398efdd28242cd9fa3fc8fb18440a9"
 
 [observability]
 enabled = true
+
+# Worker-to-Worker calls to the booking MCP server (same account: the public
+# workers.dev URL can't be fetched from here, so use a service binding).
+[[services]]
+binding = "BOOKING"
+service = "chair-ready-voice"
