@@ -43,9 +43,9 @@ test('embedded browser code is valid, self-contained JavaScript', () => {
 });
 
 test('MOCK try-on returns the sample image for the look as a data URL', async () => {
-  const { res, data } = await call(env(), fastMock, 'POST', '/api/try-on', { lookId: 'short-boxed-beard', image: selfie });
+  const { res, data } = await call(env(), fastMock, 'POST', '/api/try-on', { lookId: 'anchor-beard', image: selfie });
   assert.equal(res.status, 200);
-  assert.equal(data.lookId, 'short-boxed-beard');
+  assert.equal(data.lookId, 'anchor-beard');
   assert.match(data.image, /^data:image\/jpeg;base64,\/9j\//);
   assert.equal(data.mock, true);
   assert.equal(data.triesLeft, 7);
@@ -53,22 +53,22 @@ test('MOCK try-on returns the sample image for the look as a data URL', async ()
 
 test('try-on validates look and image', async () => {
   assert.equal((await call(env(), fastMock, 'POST', '/api/try-on', { lookId: 'mullet', image: selfie })).res.status, 400);
-  assert.equal((await call(env(), fastMock, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: 'data:text/plain;base64,aGk=' })).res.status, 400);
+  assert.equal((await call(env(), fastMock, 'POST', '/api/try-on', { lookId: 'tapered-fade', image: 'data:text/plain;base64,aGk=' })).res.status, 400);
   assert.equal((await call(env(), fastMock, 'POST', '/api/try-on', 'not json')).res.status, 400);
   const huge = 'data:image/jpeg;base64,' + 'A'.repeat(4 * 1024 * 1024);
-  assert.equal((await call(env(), fastMock, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: huge })).res.status, 413);
+  assert.equal((await call(env(), fastMock, 'POST', '/api/try-on', { lookId: 'tapered-fade', image: huge })).res.status, 413);
 });
 
 test('tries are capped per visitor per day; other visitors are unaffected', async () => {
   const e = env({ TRY_LIMIT: '2' });
   for (const left of [1, 0]) {
-    const { data } = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: selfie });
+    const { data } = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'tapered-fade', image: selfie });
     assert.equal(data.triesLeft, left);
   }
-  const blocked = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'crop-mid-fade', image: selfie });
+  const blocked = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'textured-crop', image: selfie });
   assert.equal(blocked.res.status, 429);
   assert.equal(blocked.data.triesLeft, 0);
-  const other = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'crop-mid-fade', image: selfie }, { headers: { 'cf-connecting-ip': '198.51.100.2' } });
+  const other = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'textured-crop', image: selfie }, { headers: { 'cf-connecting-ip': '198.51.100.2' } });
   assert.equal(other.res.status, 200);
   const cfg = await call(e, {}, 'GET', '/api/config');
   assert.equal(cfg.data.triesLeft, 0);
@@ -80,10 +80,10 @@ test('tries are capped per visitor per day; other visitors are unaffected', asyn
 test('a whole-site daily cap stops visitors on different IPs from draining units', async () => {
   const e = env({ TRY_LIMIT: '5', DAILY_TRY_LIMIT: '2' });
   for (const ip of ['198.51.100.1', '198.51.100.2']) {
-    const ok = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: selfie }, { headers: { 'cf-connecting-ip': ip } });
+    const ok = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'tapered-fade', image: selfie }, { headers: { 'cf-connecting-ip': ip } });
     assert.equal(ok.res.status, 200);
   }
-  const blocked = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: selfie }, { headers: { 'cf-connecting-ip': '198.51.100.3' } });
+  const blocked = await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'tapered-fade', image: selfie }, { headers: { 'cf-connecting-ip': '198.51.100.3' } });
   assert.equal(blocked.res.status, 429);
   assert.match(blocked.data.error, /today's limit/);
 });
@@ -91,11 +91,11 @@ test('a whole-site daily cap stops visitors on different IPs from draining units
 test('failed try-ons do not use up a try', async () => {
   const e = env({ TRY_LIMIT: '1' });
   const failing = { youcam: { applyLook: async () => { throw new YouCamError('error_no_face'); }, deleteTask: async () => true } };
-  const { res, data } = await call(e, failing, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: selfie });
+  const { res, data } = await call(e, failing, 'POST', '/api/try-on', { lookId: 'tapered-fade', image: selfie });
   assert.equal(res.status, 422);
   assert.equal(data.code, 'error_no_face');
   assert.match(data.error, /couldn't find a face/);
-  assert.equal((await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: selfie })).res.status, 200);
+  assert.equal((await call(e, fastMock, 'POST', '/api/try-on', { lookId: 'tapered-fade', image: selfie })).res.status, 200);
 });
 
 test('real mode: full YouCam round trip, then the task (and selfie) is deleted', async () => {
@@ -103,7 +103,7 @@ test('real mode: full YouCam round trip, then the task (and selfie) is deleted',
   const youcam = new YouCamClient({ apiKey: 'test-key', fetch: fake.fetch, sleep: async () => {} });
   const waited = [];
   const { res, data } = await call(env({ YOUCAM_MOCK: '0', YOUCAM_API_KEY: 'test-key' }), { youcam }, 'POST', '/api/try-on',
-    { lookId: 'fade-and-boxed-beard', image: selfie }, { ctx: { waitUntil: (p) => waited.push(p) } });
+    { lookId: 'fade-and-anchor', image: selfie }, { ctx: { waitUntil: (p) => waited.push(p) } });
   assert.equal(res.status, 200);
   assert.match(data.image, /^data:image\/jpeg;base64,/);
   await Promise.all(waited);
@@ -116,7 +116,7 @@ test('real mode: tasks are deleted even when a later step fails', async () => {
   const youcam = new YouCamClient({ apiKey: 'test-key', fetch: fake.fetch, sleep: async () => {} });
   const waited = [];
   const { res } = await call(env({ YOUCAM_MOCK: '0', YOUCAM_API_KEY: 'test-key' }), { youcam }, 'POST', '/api/try-on',
-    { lookId: 'fade-and-boxed-beard', image: selfie }, { ctx: { waitUntil: (p) => waited.push(p) } });
+    { lookId: 'fade-and-anchor', image: selfie }, { ctx: { waitUntil: (p) => waited.push(p) } });
   assert.equal(res.status, 422);
   await Promise.all(waited);
   assert.deepEqual(fake.calls.filter((c) => c.path === '/s2s/v2.0/task/delete').map((c) => c.body.task_id), ['TASK-1', 'TASK-2']);
@@ -125,12 +125,12 @@ test('real mode: tasks are deleted even when a later step fails', async () => {
 test('real mode: only JPEG up to 1000px is sent on to YouCam', async () => {
   const e = env({ YOUCAM_MOCK: '0', YOUCAM_API_KEY: 'test-key' });
   const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-  assert.equal((await call(e, {}, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: png })).res.status, 400);
-  assert.equal((await call(e, {}, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: jpegDataUrl(1200, 1600) })).res.status, 400);
+  assert.equal((await call(e, {}, 'POST', '/api/try-on', { lookId: 'tapered-fade', image: png })).res.status, 400);
+  assert.equal((await call(e, {}, 'POST', '/api/try-on', { lookId: 'tapered-fade', image: jpegDataUrl(1200, 1600) })).res.status, 400);
 });
 
 test('real mode without an API key: clear 503, booking still possible', async () => {
-  const { res, data } = await call(env({ YOUCAM_MOCK: '0' }), {}, 'POST', '/api/try-on', { lookId: 'high-skin-fade', image: selfie });
+  const { res, data } = await call(env({ YOUCAM_MOCK: '0' }), {}, 'POST', '/api/try-on', { lookId: 'tapered-fade', image: selfie });
   assert.equal(res.status, 503);
   assert.match(data.error, /still book/);
 });

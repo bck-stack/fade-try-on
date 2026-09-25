@@ -22,18 +22,28 @@ test('every look maps to a real service with price and duration', () => {
     const s = serviceForLook(look);
     assert.ok(PRICE_LIST[s.name], `${look.id} -> ${s.name}`);
   }
-  assert.equal(serviceForLook('high-skin-fade').name, 'Skin Fade');
-  assert.equal(serviceForLook('crop-mid-fade').name, 'Skin Fade');
-  assert.equal(serviceForLook('classic-side-part').name, 'Classic Cut');
-  assert.equal(serviceForLook('short-boxed-beard').name, 'Beard Trim & Shape');
-  assert.equal(serviceForLook('clean-stubble').name, 'Beard Trim & Shape');
-  assert.equal(serviceForLook('fade-and-boxed-beard').name, 'Cut + Beard');
-  assert.equal(serviceForLook('kids-crew-cut').name, 'Kids Cut (under 12)');
+  assert.equal(serviceForLook('tapered-fade').name, 'Skin Fade');
+  assert.equal(serviceForLook('textured-crop').name, 'Skin Fade');
+  assert.equal(serviceForLook('side-swept-undercut').name, 'Classic Cut');
+  assert.equal(serviceForLook('anchor-beard').name, 'Beard Trim & Shape');
+  assert.equal(serviceForLook('goatee').name, 'Beard Trim & Shape');
+  assert.equal(serviceForLook('fade-and-anchor').name, 'Cut + Beard');
+  assert.equal(serviceForLook('buzz-cut').name, 'Classic Cut');
 });
 
-test('every service can be reached from at least one look', () => {
+test('every adult service can be reached from a look; kids cuts have none on purpose', () => {
   const reached = new Set(LOOKS.map((l) => serviceForLook(l).name));
-  for (const s of SERVICES) assert.ok(reached.has(s.name), s.name);
+  for (const s of SERVICES) assert.equal(reached.has(s.name), !/kids/i.test(s.name), s.name);
+});
+
+test('every step pins a template id from the live YouCam catalogue', () => {
+  const pinned = {
+    'tapered-fade': ['all_messy_tapered_fade'], 'textured-crop': ['male_textured_crop'],
+    'side-swept-undercut': ['all_side_swept_undercut'], 'buzz-cut': ['all_buzz_cut'],
+    'anchor-beard': ['all_anchor'], goatee: ['all_goatee'], 'fade-and-anchor': ['all_messy_tapered_fade', 'all_anchor'],
+  };
+  assert.deepEqual(Object.keys(pinned).sort(), LOOKS.map((l) => l.id).sort());
+  for (const look of LOOKS) assert.deepEqual(planSteps(look).map((s) => s.templateId), pinned[look.id], look.id);
 });
 
 test('look steps match the service: beard services use the beard feature, Cut + Beard chains both', () => {
@@ -44,8 +54,8 @@ test('look steps match the service: beard services use the beard feature, Cut + 
     else if (service === 'Cut + Beard') assert.deepEqual(features, ['hair', 'beard']);
     else assert.deepEqual(features, ['hair']);
   }
-  assert.equal(lookUnits(getLook('fade-and-boxed-beard')), 4);
-  assert.equal(lookUnits(getLook('high-skin-fade')), 2);
+  assert.equal(lookUnits(getLook('fade-and-anchor')), 4);
+  assert.equal(lookUnits(getLook('tapered-fade')), 2);
 });
 
 test('every look has a mock image, plus the demo selfie', () => {
@@ -79,7 +89,7 @@ test('live prices from the booking server win; missing ones fall back', () => {
 test('catalogue gives the page everything it shows', () => {
   const items = catalogue();
   assert.equal(items.length, LOOKS.length);
-  const combo = items.find((i) => i.id === 'fade-and-boxed-beard');
+  const combo = items.find((i) => i.id === 'fade-and-anchor');
   assert.deepEqual(
     { service: combo.service, price: combo.price, minutes: combo.minutes, features: combo.features, units: combo.units },
     { service: 'Cut + Beard', price: 38, minutes: 60, features: ['hair', 'beard'], units: 4 },
@@ -87,12 +97,13 @@ test('catalogue gives the page everything it shows', () => {
 });
 
 test('planSteps reads LOOK_REFS and LOOK_TEMPLATES, ignores bad JSON', () => {
-  const fade = getLook('high-skin-fade');
-  assert.deepEqual(planSteps(fade, {}), [{ feature: 'hair', keywords: fade.steps[0].keywords }]);
-  assert.equal(planSteps(fade, { LOOK_TEMPLATES: '{"high-skin-fade":"T1"}' })[0].templateId, 'T1');
-  assert.equal(planSteps(fade, { LOOK_REFS: '{"high-skin-fade":"https://x/r.jpg"}' })[0].refUrl, 'https://x/r.jpg');
-  assert.equal(planSteps(fade, { LOOK_TEMPLATES: 'not json' })[0].templateId, undefined);
+  const fade = getLook('tapered-fade');
+  assert.deepEqual(planSteps(fade, {}), [{ feature: 'hair', keywords: fade.steps[0].keywords, templateId: 'all_messy_tapered_fade' }]);
+  assert.equal(planSteps(fade, { LOOK_TEMPLATES: '{"tapered-fade":"T1"}' })[0].templateId, 'T1');
+  assert.equal(planSteps(fade, { LOOK_REFS: '{"tapered-fade":"https://x/r.jpg"}' })[0].refUrl, 'https://x/r.jpg');
+  assert.equal(planSteps(fade, { LOOK_TEMPLATES: 'not json' })[0].templateId, 'all_messy_tapered_fade');
+  assert.equal(planSteps(fade, { LOOK_REFS: '{"tapered-fade":"https://x/r.jpg"}' })[0].templateId, undefined);
   // Reference photos only apply to hair; beard steps still need a template.
-  const beard = getLook('short-boxed-beard');
-  assert.equal(planSteps(beard, { LOOK_REFS: '{"short-boxed-beard":"https://x/r.jpg"}' })[0].refUrl, undefined);
+  const beard = getLook('anchor-beard');
+  assert.equal(planSteps(beard, { LOOK_REFS: '{"anchor-beard":"https://x/r.jpg"}' })[0].refUrl, undefined);
 });

@@ -164,13 +164,13 @@ ${sampleTag}
 // One image per look id in src/looks.js, plus the demo "selfie".
 const images = {
   'demo-selfie': { accent: '#6b7280', hair: hairOvergrown, beard: stubbleLight },
-  'high-skin-fade': { accent: '#b8322a', hair: fadeSides('skinFade') + hairSkinFadeTop, beard: stubbleLight },
-  'crop-mid-fade': { accent: '#c8a15a', hair: fadeSides('midFade') + hairCropTop, beard: stubbleLight },
-  'classic-side-part': { accent: '#2f5d50', hair: fadeSides('taper') + hairSidePart, beard: stubbleLight },
-  'short-boxed-beard': { accent: '#7a4b2a', hair: hairOvergrown, beard: beardBoxed },
-  'clean-stubble': { accent: '#44607a', hair: hairOvergrown, beard: beardStubbleLine },
-  'fade-and-boxed-beard': { accent: '#b8322a', hair: fadeSides('skinFade') + hairSkinFadeTop, beard: beardBoxed },
-  'kids-crew-cut': { accent: '#3d7bd9', hair: hairCrew, beard: '' },
+  'tapered-fade': { accent: '#b8322a', hair: fadeSides('skinFade') + hairSkinFadeTop, beard: stubbleLight },
+  'textured-crop': { accent: '#c8a15a', hair: fadeSides('midFade') + hairCropTop, beard: stubbleLight },
+  'side-swept-undercut': { accent: '#2f5d50', hair: fadeSides('taper') + hairSidePart, beard: stubbleLight },
+  'anchor-beard': { accent: '#7a4b2a', hair: hairOvergrown, beard: beardBoxed },
+  'goatee': { accent: '#44607a', hair: hairOvergrown, beard: beardStubbleLine },
+  'fade-and-anchor': { accent: '#b8322a', hair: fadeSides('skinFade') + hairSkinFadeTop, beard: beardBoxed },
+  'buzz-cut': { accent: '#3d7bd9', hair: hairCrew, beard: '' },
 };
 
 const { chromium } = await import('playwright-core');

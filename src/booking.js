@@ -8,7 +8,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 // Workers forbid eval/new Function, which the SDK's default (Ajv) validator relies on.
 import { CfWorkerJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/cfworker';
 
-export const BOOKING_MCP_URL = 'https://chair-ready-voice.sitecheck-api.workers.dev/mcp';
+export const BOOKING_MCP_URL = 'https://chair-ready-voice.fadeandco.workers.dev/mcp';
 export const BUSINESS_ID = 'fade-and-co';
 
 export const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;

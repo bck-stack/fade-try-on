@@ -9,7 +9,11 @@
 //   1. LOOK_REFS env (JSON {lookId: url}) -> hair step uses ref_file_url, i.e. a photo of
 //      one of Marcus's own cuts as the reference. Hair only; beard has no reference mode.
 //   2. LOOK_TEMPLATES env (JSON {lookId: templateId} or {lookId: {hair, beard}})
-//   3. The first YouCam template whose title/category contains one of `keywords`.
+//   3. The step's pinned `template` id (checked against the live YouCam catalogue,
+//      25 Sep 2026; `keepColor` = the template declares keep_users_color).
+//   4. The first YouCam template whose title/category contains one of `keywords`
+//      (only if a pinned id is ever withdrawn: set LOOK_TEMPLATES, or drop `template`).
+// There is no kids look on purpose: we don't ask for photos of children.
 
 // Fallback copy of the services on the Chair Ready booking server. Live values from
 // get_business_info win when the server is reachable (see mergeServices).
@@ -26,56 +30,56 @@ export const UNIT_COST = { hair: 2, beard: 2 };
 
 export const LOOKS = [
   {
-    id: 'high-skin-fade',
-    name: 'High Skin Fade',
-    blurb: 'Down to the skin at the sides, short textured top.',
+    id: 'tapered-fade',
+    name: 'Tapered Fade',
+    blurb: 'Short at the sides, fading up into a messy textured top.',
     service: 'Skin Fade',
-    steps: [{ feature: 'hair', keywords: ['skin fade', 'high fade', 'fade', 'buzz'] }],
+    steps: [{ feature: 'hair', template: 'all_messy_tapered_fade', keywords: ['tapered fade', 'fade'] }],
   },
   {
-    id: 'crop-mid-fade',
-    name: 'Crop & Mid Fade',
-    blurb: 'Blunt textured fringe with a mid fade.',
+    id: 'textured-crop',
+    name: 'Textured Crop',
+    blurb: 'Choppy fringe worn forward, short tidy sides.',
     service: 'Skin Fade',
-    steps: [{ feature: 'hair', keywords: ['crop', 'french crop', 'mid fade', 'fade'] }],
+    steps: [{ feature: 'hair', template: 'male_textured_crop', keywords: ['textured crop', 'crop'] }],
   },
   {
-    id: 'classic-side-part',
-    name: 'Classic Side Part',
-    blurb: 'Scissor cut on top, tidy taper, hard part optional.',
+    id: 'side-swept-undercut',
+    name: 'Side-Swept Undercut',
+    blurb: 'Volume swept to one side over a short undercut.',
     service: 'Classic Cut',
-    steps: [{ feature: 'hair', keywords: ['side part', 'comb over', 'classic', 'ivy', 'slick'] }],
+    steps: [{ feature: 'hair', template: 'all_side_swept_undercut', keepColor: true, keywords: ['side-swept', 'undercut'] }],
   },
   {
-    id: 'short-boxed-beard',
-    name: 'Short Boxed Beard',
-    blurb: 'Full but short, sharp cheek and neck lines.',
+    id: 'buzz-cut',
+    name: 'Buzz Cut',
+    blurb: 'One length all over with the clippers. Zero effort, sharp result.',
+    service: 'Classic Cut',
+    steps: [{ feature: 'hair', template: 'all_buzz_cut', keepColor: true, keywords: ['buzz'] }],
+  },
+  {
+    id: 'anchor-beard',
+    name: 'Anchor Beard',
+    blurb: 'Moustache and a pointed chin beard, cheeks shaved clean.',
     service: 'Beard Trim & Shape',
-    steps: [{ feature: 'beard', keywords: ['short box', 'boxed', 'box', 'full'] }],
+    steps: [{ feature: 'beard', template: 'all_anchor', keywords: ['anchor'] }],
   },
   {
-    id: 'clean-stubble',
-    name: 'Clean Stubble Line-up',
-    blurb: 'Heavy stubble, lined up at the cheeks and neck.',
+    id: 'goatee',
+    name: 'Goatee',
+    blurb: 'Clean cheeks, a neat goatee and moustache.',
     service: 'Beard Trim & Shape',
-    steps: [{ feature: 'beard', keywords: ['stubble', 'short', 'trim'] }],
+    steps: [{ feature: 'beard', template: 'all_goatee', keywords: ['goatee'] }],
   },
   {
-    id: 'fade-and-boxed-beard',
-    name: 'Skin Fade + Boxed Beard',
+    id: 'fade-and-anchor',
+    name: 'Tapered Fade + Anchor Beard',
     blurb: 'The full works: fade and a shaped beard in one sitting.',
     service: 'Cut + Beard',
     steps: [
-      { feature: 'hair', keywords: ['skin fade', 'high fade', 'fade', 'buzz'] },
-      { feature: 'beard', keywords: ['short box', 'boxed', 'box', 'full'] },
+      { feature: 'hair', template: 'all_messy_tapered_fade', keywords: ['tapered fade', 'fade'] },
+      { feature: 'beard', template: 'all_anchor', keywords: ['anchor'] },
     ],
-  },
-  {
-    id: 'kids-crew-cut',
-    name: 'Kids Crew Cut',
-    blurb: 'Short, neat and easy. For under-12s (a parent takes the photo).',
-    service: 'Kids Cut (under 12)',
-    steps: [{ feature: 'hair', keywords: ['crew', 'buzz', 'short'] }],
   },
 ];
 
@@ -159,8 +163,15 @@ export function planSteps(look, env = {}) {
       return plan;
     }
     const t = templates[look.id];
-    if (typeof t === 'string' && look.steps.length === 1) plan.templateId = t;
-    else if (t && typeof t === 'object' && typeof t[step.feature] === 'string') plan.templateId = t[step.feature];
+    let override;
+    if (typeof t === 'string' && look.steps.length === 1) override = t;
+    else if (t && typeof t === 'object' && typeof t[step.feature] === 'string') override = t[step.feature];
+    // An override's keep_users_color is unknown here; the catalogue lookup decides it.
+    if (override) plan.templateId = override;
+    else if (step.template) {
+      plan.templateId = step.template;
+      if (step.keepColor) plan.keepColor = true;
+    }
     return plan;
   });
 }

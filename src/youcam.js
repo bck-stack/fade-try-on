@@ -275,7 +275,7 @@ export class YouCamClient {
         if (step.refUrl) input.ref_file_url = step.refUrl;
         else input.template_id = step.templateId || (await this.resolveTemplate(step.feature, step.keywords || []));
         // Keep the customer's own hair colour where the template allows it (v2.1 `hair_color`).
-        if (step.feature === 'hair' && input.template_id && this.keepsUsersColor(input.template_id)) input.hair_color = 'src';
+        if (step.feature === 'hair' && input.template_id && (step.keepColor || this.keepsUsersColor(input.template_id))) input.hair_color = 'src';
         const taskId = await this.runTask(step.feature, input);
         taskIds.push(taskId);
         resultUrl = await this.waitForTask(step.feature, taskId);

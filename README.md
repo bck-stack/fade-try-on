@@ -24,9 +24,11 @@ These were taken in MOCK mode, so the faces are the bundled sample illustrations
 |---|---|---|
 | ![Confirmation with the chosen look](docs/screenshots/04-confirmed.png) | ![Incoming looks](docs/screenshots/05-incoming-looks.png) | ![Desktop layout](docs/screenshots/06-desktop.png) |
 
-<!-- TODO: replace with real-API screenshots once the hackathon units are redeemed:
-     docs/screenshots/real-01-try-on.png, real-02-cut-plus-beard.png -->
-> Placeholder: real YouCam results on a real face go here once the API key is set up.
+### Real YouCam results
+
+Every look, run through the live YouCam API with the pinned templates. The selfie is an AI-generated face (FLUX), not a real person.
+
+![Real YouCam results for all seven looks](docs/samples/real-youcam-results.jpg)
 
 ## The looks
 
@@ -34,19 +36,21 @@ Each look is a real Fade & Co. service. Prices and durations come live from the 
 
 | Look | Service | Time | Price | YouCam features | Units |
 |---|---|---|---|---|---|
-| High Skin Fade | Skin Fade | 45 min | £28 | hairstyle | 2 |
-| Crop & Mid Fade | Skin Fade | 45 min | £28 | hairstyle | 2 |
-| Classic Side Part | Classic Cut | 30 min | £22 | hairstyle | 2 |
-| Short Boxed Beard | Beard Trim & Shape | 20 min | £14 | beard | 2 |
-| Clean Stubble Line-up | Beard Trim & Shape | 20 min | £14 | beard | 2 |
-| Skin Fade + Boxed Beard | Cut + Beard | 60 min | £38 | hairstyle, then beard on the result | 4 |
-| Kids Crew Cut | Kids Cut (under 12) | 30 min | £16 | hairstyle | 2 |
+| Tapered Fade | Skin Fade | 45 min | £28 | hairstyle | 2 |
+| Textured Crop | Skin Fade | 45 min | £28 | hairstyle | 2 |
+| Side-Swept Undercut | Classic Cut | 30 min | £22 | hairstyle | 2 |
+| Anchor Beard | Beard Trim & Shape | 20 min | £14 | beard | 2 |
+| Goatee | Beard Trim & Shape | 20 min | £14 | beard | 2 |
+| Tapered Fade + Anchor Beard | Cut + Beard | 60 min | £38 | hairstyle, then beard on the result | 4 |
+| Buzz Cut | Classic Cut | 30 min | £22 | hairstyle | 2 |
 
 The looks live in [`src/looks.js`](src/looks.js). Each hairstyle step can use:
 
 - **Marcus's own work as the reference** (`LOOK_REFS`): a photo of a cut he's actually done is sent as `ref_file_url`, so the customer tries *his* skin fade, not a stock one;
 - **a pinned YouCam template** (`LOOK_TEMPLATES`);
-- or, by default, the first YouCam template whose name matches the look's keywords.
+- or, by default, the YouCam template id pinned in `src/looks.js`, chosen from the live catalogue (`/api/admin/templates` lists it). Keyword matching is only a fallback if a pinned id is ever withdrawn.
+
+There's deliberately no kids look: the shop still books kids' cuts, but the try-on never asks for a photo of a child.
 
 ## Architecture
 
@@ -76,7 +80,7 @@ flowchart LR
   Marcus --> ADM --> KV
 ```
 
-Try-on sequence for "Skin Fade + Boxed Beard":
+Try-on sequence for "Tapered Fade + Anchor Beard":
 
 ```mermaid
 sequenceDiagram

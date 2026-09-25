@@ -85,8 +85,9 @@ test('config shows live prices from get_business_info', async () => {
   const { data } = await call(env(), { mcpFetch: fake.fetch }, 'GET', '/api/config');
   assert.equal(data.bookingOnline, true);
   assert.equal(data.business.today, '2026-09-25');
-  assert.equal(data.looks.find((l) => l.id === 'high-skin-fade').price, 30);
-  assert.equal(data.looks.find((l) => l.id === 'kids-crew-cut').service, 'Kids Cut (under 12)');
+  assert.equal(data.looks.find((l) => l.id === 'tapered-fade').price, 30);
+  assert.equal(data.looks.find((l) => l.id === 'buzz-cut').service, 'Classic Cut');
+  assert.equal(data.looks.some((l) => /kids/i.test(l.service)), false); // no look asks for a child's photo
 });
 
 test('MCP calls go through the BOOKING service binding when one is bound', async () => {
@@ -101,31 +102,31 @@ test('MCP calls go through the BOOKING service binding when one is bound', async
 test('config falls back to the local price list when the diary is down', async () => {
   const { data } = await call(env(), { mcpFetch: async () => { throw new Error('down'); } }, 'GET', '/api/config');
   assert.equal(data.bookingOnline, false);
-  assert.equal(data.looks.find((l) => l.id === 'high-skin-fade').price, 28);
+  assert.equal(data.looks.find((l) => l.id === 'tapered-fade').price, 28);
 });
 
 test('availability: soonest days, and times for a chosen date, for the look\'s service', async () => {
   const fake = fakeBookingServer();
   const deps = { mcpFetch: fake.fetch };
-  const soon = await call(env(), deps, 'GET', '/api/availability?lookId=kids-crew-cut');
-  assert.equal(soon.data.service, 'Kids Cut (under 12)');
+  const soon = await call(env(), deps, 'GET', '/api/availability?lookId=buzz-cut');
+  assert.equal(soon.data.service, 'Classic Cut');
   assert.equal(soon.data.items.length, 1);
-  const day = await call(env(), deps, 'GET', '/api/availability?lookId=fade-and-boxed-beard&date=2026-09-29');
+  const day = await call(env(), deps, 'GET', '/api/availability?lookId=fade-and-anchor&date=2026-09-29');
   assert.equal(day.data.service, 'Cut + Beard');
   assert.deepEqual(day.data.times, ['10:00', '11:15', '14:00']);
   assert.equal((await call(env(), deps, 'GET', '/api/availability?lookId=nope')).res.status, 400);
-  assert.equal((await call(env(), deps, 'GET', '/api/availability?lookId=high-skin-fade&date=tomorrow')).res.status, 400);
+  assert.equal((await call(env(), deps, 'GET', '/api/availability?lookId=tapered-fade&date=tomorrow')).res.status, 400);
 });
 
 test('book with consent: books the look\'s service and stores only the chosen image', async () => {
   const fake = fakeBookingServer();
   const e = env();
   const { res, data } = await call(e, { mcpFetch: fake.fetch }, 'POST', '/api/book', {
-    lookId: 'fade-and-boxed-beard', date: '2026-09-29', time: '14:00', customer: 'Sam Okafor', phone: '07700 900123', consent: true, image: lookImage,
+    lookId: 'fade-and-anchor', date: '2026-09-29', time: '14:00', customer: 'Sam Okafor', phone: '07700 900123', consent: true, image: lookImage,
   });
   assert.equal(res.status, 200);
   assert.equal(data.booking.booking_id, 501);
-  assert.equal(data.look.name, 'Skin Fade + Boxed Beard');
+  assert.equal(data.look.name, 'Tapered Fade + Anchor Beard');
   assert.equal(data.look.service, 'Cut + Beard');
   assert.equal(data.shared, true);
   assert.equal(fake.state.calls.at(-1).args.service, 'Cut + Beard');
@@ -133,7 +134,7 @@ test('book with consent: books the look\'s service and stores only the chosen im
   const keys = [...e.LOOKS.data.keys()].filter((k) => k.startsWith('look:'));
   assert.deepEqual(keys, ['look:2026-09-29T14:00:501']);
   const stored = e.LOOKS.data.get(keys[0]);
-  assert.equal(stored.metadata.lookName, 'Skin Fade + Boxed Beard');
+  assert.equal(stored.metadata.lookName, 'Tapered Fade + Anchor Beard');
   assert.equal(stored.metadata.hasImage, true);
   assert.equal(stored.metadata.phone, undefined, 'phone number is not stored');
   assert.ok(stored.ttl > 7 * 86400 - 10, 'kept until a week after the appointment');
@@ -157,21 +158,21 @@ test('book without consent: no image stored, even if one is sent', async () => {
   const fake = fakeBookingServer();
   const e = env();
   const { data } = await call(e, { mcpFetch: fake.fetch }, 'POST', '/api/book', {
-    lookId: 'high-skin-fade', date: '2026-09-29', time: '10:00', customer: 'Jo', phone: '07700900123', consent: false, image: lookImage,
+    lookId: 'tapered-fade', date: '2026-09-29', time: '10:00', customer: 'Jo', phone: '07700900123', consent: false, image: lookImage,
   });
   assert.equal(data.shared, false);
   assert.equal(data.stored, true);
   const [entry] = [...e.LOOKS.data.values()];
   assert.equal(entry.value, '');
   assert.equal(entry.metadata.hasImage, false);
-  assert.equal(entry.metadata.lookName, 'High Skin Fade');
+  assert.equal(entry.metadata.lookName, 'Tapered Fade');
 });
 
 test('a slot taken in the meantime returns 409 with the server message; nothing stored', async () => {
   const fake = fakeBookingServer();
   const e = env();
   const { res, data } = await call(e, { mcpFetch: fake.fetch }, 'POST', '/api/book', {
-    lookId: 'high-skin-fade', date: '2026-09-29', time: '11:00', customer: 'Jo Bloggs', phone: '07700900123', consent: true, image: lookImage,
+    lookId: 'tapered-fade', date: '2026-09-29', time: '11:00', customer: 'Jo Bloggs', phone: '07700900123', consent: true, image: lookImage,
   });
   assert.equal(res.status, 409);
   assert.match(data.error, /just taken/);
@@ -180,7 +181,7 @@ test('a slot taken in the meantime returns 409 with the server message; nothing 
 
 test('booking input is validated before the MCP server is called', async () => {
   const fake = fakeBookingServer();
-  const base = { lookId: 'high-skin-fade', date: '2026-09-29', time: '10:00', customer: 'Jo Bloggs', phone: '07700900123' };
+  const base = { lookId: 'tapered-fade', date: '2026-09-29', time: '10:00', customer: 'Jo Bloggs', phone: '07700900123' };
   for (const bad of [{ date: '29-09-2026' }, { time: '9am' }, { customer: 'J' }, { phone: 'call me' }, { lookId: 'mullet' }, { consent: true, image: 'data:text/html;base64,PGgxPg==' }]) {
     const { res } = await call(env(), { mcpFetch: fake.fetch }, 'POST', '/api/book', { ...base, ...bad });
     assert.equal(res.status, 400, JSON.stringify(bad));
@@ -190,7 +191,7 @@ test('booking input is validated before the MCP server is called', async () => {
 
 test('diary unreachable while booking -> 503, clear message', async () => {
   const { res, data } = await call(env(), { mcpFetch: async () => { throw new Error('down'); } }, 'POST', '/api/book', {
-    lookId: 'high-skin-fade', date: '2026-09-29', time: '10:00', customer: 'Jo Bloggs', phone: '07700900123',
+    lookId: 'tapered-fade', date: '2026-09-29', time: '10:00', customer: 'Jo Bloggs', phone: '07700900123',
   });
   assert.equal(res.status, 503);
   assert.match(data.error, /Nothing was booked/);
@@ -199,7 +200,7 @@ test('diary unreachable while booking -> 503, clear message', async () => {
 test('booking still succeeds without a LOOKS binding', async () => {
   const fake = fakeBookingServer();
   const { res, data } = await call(env({ LOOKS: undefined }), { mcpFetch: fake.fetch }, 'POST', '/api/book', {
-    lookId: 'clean-stubble', date: '2026-09-29', time: '10:00', customer: 'Jo Bloggs', phone: '07700900123', consent: true, image: lookImage,
+    lookId: 'goatee', date: '2026-09-29', time: '10:00', customer: 'Jo Bloggs', phone: '07700900123', consent: true, image: lookImage,
   });
   assert.equal(res.status, 200);
   assert.equal(data.stored, false);

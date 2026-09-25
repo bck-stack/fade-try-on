@@ -33,7 +33,7 @@ Response (fields we read):
 { "status": 200, "data": { "files": [{ "file_id": "…", "requests": [{ "method": "PUT", "url": "https://…presigned…", "headers": { "Content-Type": "image/jpg", "Content-Length": "183422" } }] }] } }
 ```
 
-- **TODO (content type):** the docs' examples declare JPEGs as `image/jpg` (not the standard `image/jpeg`). We send `image/jpg` to match the examples exactly.
+- **Checked live (content type), 25 Sep 2026:** uploads declared as `image/jpg` went through for all seven looks. Original note: the docs' examples declare JPEGs as `image/jpg` (not the standard `image/jpeg`). We send `image/jpg` to match the examples exactly.
 - Cost: no units.
 
 ### 2. Upload the bytes: `PUT <requests[0].url>`
@@ -49,7 +49,7 @@ Body (we send exactly one reference source):
 | Field | When |
 |---|---|
 | `src_file_id` | The uploaded selfie (first step of a look) |
-| `template_id` | Default: picked from the template list by keyword, or pinned via `LOOK_TEMPLATES` |
+| `template_id` | Pinned per look in `src/looks.js` (overridable via `LOOK_TEMPLATES`); keyword match against the template list only as a fallback |
 | `ref_file_url` | When `LOOK_REFS` gives a photo of Marcus's own cut for this look (custom mode) |
 | `hair_color: "src"` | Only for templates whose listing says `keep_users_color: true`, so the customer keeps their own colour. Per the docs it only applies to those templates. |
 
@@ -61,13 +61,9 @@ Input limits (from the page's *File Specs & Errors*): JPG/JPEG only, < 10 MB, lo
 
 ### 3b. Template list: `GET /s2s/v2.1/task/template/hair-transfer`
 
-Query: `page_size` (1–20, we use 20), `starting_token` (from the previous page's `next_token`). Response: `data.templates[] = { id, thumb, title, category_name, keep_users_color }`, plus `data.next_token`. We read up to 5 pages once per Worker instance and match look keywords against `title` and `category_name`. No units.
+Query: `page_size` (1–20, we use 20), `starting_token` (from the previous page's `next_token`). Response: `data.templates[] = { id, thumb, title, category_name, keep_users_color }`, plus `data.next_token`. Pinned looks never call it. The keyword fallback reads up to 5 pages once per Worker instance and matches `title` and `category_name`; the admin listing reads up to 20. No units.
 
-- **TODO (template ids):** we haven't seen the live template catalogue yet, so each look carries keywords (e.g. `['skin fade', 'high fade', 'fade', 'buzz']`) and falls back to the first template if nothing matches. Once the key is active, list the templates and pin the right ids with `LOOK_TEMPLATES`, for example:
-  ```sh
-  curl -s -H "Authorization: Bearer $YOUCAM_API_KEY" \
-    "https://yce-api-01.makeupar.com/s2s/v2.1/task/template/hair-transfer?page_size=20" | jq '.data.templates[] | {id,title,category_name}'
-  ```
+- **Resolved (template ids), 25 Sep 2026:** with the key active, `GET /api/admin/templates` (admin token) lists the live catalogue: 116 hairstyles and 15 beards. Every look now pins its id in `src/looks.js` (`all_messy_tapered_fade`, `male_textured_crop`, `all_side_swept_undercut`, `all_buzz_cut`, `all_anchor`, `all_goatee`). Keyword matching was unsafe ("fade" can hit `all_pink_blue_fade`), and there is no short boxed beard or stubble template, so those looks were renamed to Anchor Beard and Goatee. Each look was run once on an AI-generated face: hairstyles took 10–13 s, beards 5–6 s, Cut + Beard 16 s, and each hairstyle or beard task cost 2 units as documented.
 
 ### 4a. Beard: `POST /s2s/v2.0/task/beard-style`
 
@@ -92,7 +88,7 @@ Same paging as the hairstyle list. Response: `data.templates[] = { id, thumb, ti
 Response: `{ "status": 200, "data": { "task_status": "running" | "success" | "error", "error": <engine code or null>, "error_message": "…", "results": { "url": "…" } } }`
 
 - The docs say polling is mandatory: a task nobody polls times out and still uses units. They suggest polling at intervals ("e.g. every 10 seconds"); we use 3 s with a 120 s deadline, which stays well inside the rate limit. Up to 3 transient 429/5xx responses are retried.
-- **TODO (results shape):** in the bundle, `TaskStatusResponseV2` has `results: null` with a sibling `$ref` to `{ url }`, so it's ambiguous. The prose examples show `"results": { "url": "…" }`. We read `results.url`, falling back to `results[0].url` or `result.url`.
+- **Checked live (results shape), 25 Sep 2026:** the parser below found the result URL on every live task. Original note: in the bundle, `TaskStatusResponseV2` has `results: null` with a sibling `$ref` to `{ url }`, so it's ambiguous. The prose examples show `"results": { "url": "…" }`. We read `results.url`, falling back to `results[0].url` or `result.url`.
 - Task ids are URL-safe base64 in every example; we still `encodeURIComponent` them.
 - No units while `running` (beard page: "no units will be consumed during this stage").
 - **TODO (billing on error):** the docs don't say whether a task that ends in `error` is billed. We don't count failed tries against the visitor's cap either way.
@@ -115,7 +111,7 @@ Docs: [Unit System](https://docs.perfectcorp.com/reference/unit_system)
 
 Response: `{ "status": 200, "results": [{ "type": "ApiPaygToken", "amount_dec": 990.5, "expiry": … }] }`. We sum `amount_dec` for Marcus's view.
 
-- **TODO (auth):** this endpoint is documented under `BearerAuthentication` ("access_token obtained from authentication") rather than the API-key scheme used by v2 endpoints. We send the API key; if it's refused, the admin view shows no unit count and nothing else is affected.
+- **Checked live (auth), 25 Sep 2026:** the API key works here: the admin view reported the account's 40 units, then 24 after the test runs. Original note: this endpoint is documented under `BearerAuthentication` ("access_token obtained from authentication") rather than the API-key scheme used by v2 endpoints. We send the API key; if it's refused, the admin view shows no unit count and nothing else is affected.
 
 ## Unit budget
 
@@ -123,7 +119,7 @@ Response: `{ "status": 200, "results": [{ "type": "ApiPaygToken", "amount_dec": 
 |---|---|---|
 | Any hairstyle look | hair-transfer v2.1 | 2 |
 | Any beard look | beard-style | 2 |
-| Skin Fade + Boxed Beard | hair-transfer v2.1 → beard-style | 4 |
+| Tapered Fade + Anchor Beard | hair-transfer v2.1 → beard-style | 4 |
 | Revisiting a tried look | none (browser cache) | 0 |
 
 With the hackathon's 1,000 units that's 250–500 try-ons, depending on how many are Cut + Beard. The per-visitor cap (`TRY_LIMIT`, default 8/day) limits one visitor to at most 32 units a day, and 16 if they stick to single-feature looks.

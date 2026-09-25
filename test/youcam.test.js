@@ -11,11 +11,13 @@ function client(fake, opts = {}) {
 }
 
 const selfie = () => ({ bytes: tinyJpeg(768, 1024), contentType: 'image/jpeg' });
+// The keyword fallback path: the same look with its pinned template ids removed.
+const unpinned = (look) => ({ ...look, steps: look.steps.map(({ template, keepColor, ...step }) => step) });
 
 test('hairstyle look: upload, run, poll, download, per the documented shapes', async () => {
   const fake = fakeYouCam();
   const yc = client(fake);
-  const look = getLook('high-skin-fade');
+  const look = unpinned(getLook('tapered-fade'));
   const out = await yc.applyLook({ lookId: look.id, steps: planSteps(look, {}) }, selfie());
 
   // 1. File API: JSON body with content_type/file_name/file_size, bearer auth.
@@ -33,7 +35,7 @@ test('hairstyle look: upload, run, poll, download, per the documented shapes', a
   assert.equal(put.headers['content-length'], undefined);
   assert.equal(put.body.byteLength, selfie().bytes.byteLength);
 
-  // 3. Template picked by keyword ("skin fade") across paginated template lists.
+  // 3. Template picked by keyword ("fade") across paginated template lists.
   const run = fake.calls.find((c) => c.method === 'POST' && c.path === '/s2s/v2.1/task/hair-transfer');
   // keep_users_color template -> keep the customer's own hair colour.
   assert.deepEqual(run.body, { src_file_id: 'FILE-1', template_id: 'hair-fade', hair_color: 'src' });
@@ -55,7 +57,7 @@ test('hairstyle look: upload, run, poll, download, per the documented shapes', a
 test('hair_color is only sent for templates that declare keep_users_color', async () => {
   const fake = fakeYouCam();
   const yc = client(fake);
-  const look = getLook('kids-crew-cut'); // keywords resolve to 'hair-buzz', no keep_users_color
+  const look = unpinned(getLook('buzz-cut')); // keywords resolve to 'hair-buzz', no keep_users_color
   await yc.applyLook({ lookId: look.id, steps: planSteps(look, {}) }, selfie());
   const run = fake.calls.find((c) => c.method === 'POST' && c.path === '/s2s/v2.1/task/hair-transfer');
   assert.deepEqual(run.body, { src_file_id: 'FILE-1', template_id: 'hair-buzz' });
@@ -64,10 +66,19 @@ test('hair_color is only sent for templates that declare keep_users_color', asyn
 test('template list is fetched once and cached per client', async () => {
   const fake = fakeYouCam();
   const yc = client(fake);
-  const look = getLook('high-skin-fade');
+  const look = unpinned(getLook('tapered-fade'));
   await yc.applyLook({ lookId: look.id, steps: planSteps(look, {}) }, selfie());
   await yc.applyLook({ lookId: look.id, steps: planSteps(look, {}) }, selfie());
   assert.equal(fake.calls.filter((c) => c.path.includes('/template/')).length, 2); // 2 pages, first time only
+});
+
+test('pinned templates that keep the customer colour send hair_color: src', async () => {
+  const fake = fakeYouCam();
+  const yc = client(fake);
+  const look = getLook('side-swept-undercut');
+  await yc.applyLook({ lookId: look.id, steps: planSteps(look, {}) }, selfie());
+  const run = fake.calls.find((c) => c.method === 'POST' && c.path === '/s2s/v2.1/task/hair-transfer');
+  assert.deepEqual(run.body, { src_file_id: 'FILE-1', template_id: 'all_side_swept_undercut', hair_color: 'src' });
 });
 
 test('keyword priority: first keyword wins over later ones, falls back to first template', async () => {
@@ -81,13 +92,15 @@ test('keyword priority: first keyword wins over later ones, falls back to first 
 test('Cut + Beard chains: beard step runs on the hairstyle result URL', async () => {
   const fake = fakeYouCam();
   const yc = client(fake);
-  const look = getLook('fade-and-boxed-beard');
+  const look = getLook('fade-and-anchor');
   const out = await yc.applyLook({ lookId: look.id, steps: planSteps(look, {}) }, selfie());
 
   const hair = fake.calls.find((c) => c.method === 'POST' && c.path === '/s2s/v2.1/task/hair-transfer');
   const beard = fake.calls.find((c) => c.method === 'POST' && c.path === '/s2s/v2.0/task/beard-style');
-  assert.deepEqual(hair.body, { src_file_id: 'FILE-1', template_id: 'hair-fade', hair_color: 'src' });
-  assert.deepEqual(beard.body, { src_file_url: 'https://results.example/out/1.jpg', template_id: 'beard-box' });
+  // Pinned ids go straight to the task: no template listing, no keyword guessing.
+  assert.deepEqual(hair.body, { src_file_id: 'FILE-1', template_id: 'all_messy_tapered_fade' });
+  assert.deepEqual(beard.body, { src_file_url: 'https://results.example/out/1.jpg', template_id: 'all_anchor' });
+  assert.equal(fake.calls.filter((c) => c.path.includes('/template/')).length, 0);
   assert.equal(fake.calls.filter((c) => c.path === '/s2s/v2.0/file').length, 1, 'selfie uploaded once');
   assert.deepEqual(out.taskIds, ['TASK-1', 'TASK-2']);
   // Only the final result is downloaded.
@@ -97,8 +110,8 @@ test('Cut + Beard chains: beard step runs on the hairstyle result URL', async ()
 test('LOOK_REFS: hairstyle uses a reference photo (ref_file_url) and skips templates', async () => {
   const fake = fakeYouCam();
   const yc = client(fake);
-  const look = getLook('classic-side-part');
-  const env = { LOOK_REFS: JSON.stringify({ 'classic-side-part': 'https://fadeandco.example/refs/side-part.jpg' }) };
+  const look = getLook('side-swept-undercut');
+  const env = { LOOK_REFS: JSON.stringify({ 'side-swept-undercut': 'https://fadeandco.example/refs/side-part.jpg' }) };
   await yc.applyLook({ lookId: look.id, steps: planSteps(look, env) }, selfie());
   const run = fake.calls.find((c) => c.path === '/s2s/v2.1/task/hair-transfer' && c.method === 'POST');
   assert.deepEqual(run.body, { src_file_id: 'FILE-1', ref_file_url: 'https://fadeandco.example/refs/side-part.jpg' });
@@ -108,8 +121,8 @@ test('LOOK_REFS: hairstyle uses a reference photo (ref_file_url) and skips templ
 test('LOOK_TEMPLATES pins template ids', async () => {
   const fake = fakeYouCam();
   const yc = client(fake);
-  const look = getLook('fade-and-boxed-beard');
-  const env = { LOOK_TEMPLATES: JSON.stringify({ 'fade-and-boxed-beard': { hair: 'H-9', beard: 'B-9' } }) };
+  const look = getLook('fade-and-anchor');
+  const env = { LOOK_TEMPLATES: JSON.stringify({ 'fade-and-anchor': { hair: 'H-9', beard: 'B-9' } }) };
   await yc.applyLook({ lookId: look.id, steps: planSteps(look, env) }, selfie());
   const bodies = fake.calls.filter((c) => c.method === 'POST' && c.path.includes('/task/') && !c.path.endsWith('delete')).map((c) => c.body.template_id);
   assert.deepEqual(bodies, ['H-9', 'B-9']);
@@ -118,7 +131,7 @@ test('LOOK_TEMPLATES pins template ids', async () => {
 test('task error surfaces the engine code, a friendly message and the task ids', async () => {
   const fake = fakeYouCam({ taskResult: () => ({ task_status: 'error', error: 'error_hair_too_short', error_message: 'hair too short' }) });
   const yc = client(fake);
-  const look = getLook('high-skin-fade');
+  const look = getLook('tapered-fade');
   await assert.rejects(
     yc.applyLook({ lookId: look.id, steps: planSteps(look, {}) }, selfie()),
     (err) => {
@@ -146,7 +159,7 @@ test('out of units -> CreditInsufficiency', async () => {
       ? new Response(JSON.stringify({ status: 400, error: 'Insufficient unit', error_code: 'CreditInsufficiency' }), { status: 400 })
       : null),
   });
-  const look = getLook('short-boxed-beard');
+  const look = getLook('anchor-beard');
   await assert.rejects(client(fake).applyLook({ lookId: look.id, steps: planSteps(look, {}) }, selfie()), (err) => {
     assert.equal(err.code, 'CreditInsufficiency');
     assert.equal(err.httpStatus, 503);
