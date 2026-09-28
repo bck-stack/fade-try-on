@@ -10,7 +10,7 @@ compatibility_date = "2026-09-01"
 [vars]
 # "1" = bundled sample images, no YouCam calls, no units. Set to "0" once the
 # YOUCAM_API_KEY secret is in place.
-YOUCAM_MOCK = "1"
+YOUCAM_MOCK = "0"
 # "1" = in-memory diary instead of the Chair Ready Voice MCP server (for rehearsals).
 BOOKING_MOCK = "0"
 BOOKING_MCP_URL = "https://chair-ready-voice.fadeandco.workers.dev/mcp"
