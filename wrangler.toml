@@ -1,0 +1,47 @@
+# Fade & Co. Try-On: Cloudflare Worker config.
+# Deploy with `npx wrangler deploy` after filling in the placeholders below.
+
+name = "fade-try-on"
+# Chair Ready account (never the Offera or SiteCheck account).
+account_id = "019792a00bed4906ceb37adcf54f1bd8"
+main = "src/worker.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+# "1" = bundled sample images, no YouCam calls, no units. Set to "0" once the
+# YOUCAM_API_KEY secret is in place.
+YOUCAM_MOCK = "0"
+# "1" = in-memory diary instead of the Chair Ready Voice MCP server (for rehearsals).
+BOOKING_MOCK = "0"
+BOOKING_MCP_URL = "https://chair-ready-voice.fadeandco.workers.dev/mcp"
+# Free try-ons per visitor per day (each real try costs 2-4 YouCam units).
+TRY_LIMIT = "8"
+# Try-ons for the whole site per UTC day (1,000 hackathon units ≈ 250-500 tries).
+DAILY_TRY_LIMIT = "40"
+# Optional: use photos of Marcus's own cuts as hairstyle references, per look id.
+# LOOK_REFS = '{"tapered-fade":"https://example.com/refs/tapered-fade.jpg"}'
+# Optional: pin exact YouCam template ids per look (see docs/API-NOTES.md).
+# LOOK_TEMPLATES = '{"anchor-beard":"<beard template id>","fade-and-anchor":{"hair":"<id>","beard":"<id>"}}'
+
+# Secrets (never commit these):
+#   npx wrangler secret put YOUCAM_API_KEY   # from https://yce.perfectcorp.com/api-console/en/api-keys/
+#   npx wrangler secret put ADMIN_TOKEN      # long random string for /admin
+#   npx wrangler secret put VISITOR_SALT     # optional, salts the visitor hash for the try cap
+
+# Chosen looks + try-on counters. Create with:
+#   npx wrangler kv namespace create LOOKS
+#   npx wrangler kv namespace create LOOKS --preview
+# then paste the ids here.
+[[kv_namespaces]]
+binding = "LOOKS"
+id = "47009abfe3a643eebfb4fa426bf4f0e8"
+preview_id = "3980f0ed2e55441584fd1c431b0123ae"
+
+[observability]
+enabled = true
+
+# Worker-to-Worker calls to the booking MCP server (same account: the public
+# workers.dev URL can't be fetched from here, so use a service binding).
+[[services]]
+binding = "BOOKING"
+service = "chair-ready-voice"

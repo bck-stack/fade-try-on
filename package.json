@@ -1,0 +1,25 @@
+{
+  "name": "fade-try-on",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fade & Co. Try-On: try a barbershop's real services on your own face with the YouCam API, then book that look.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "node --test test/*.test.js",
+    "build:check": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "mock-images": "node scripts/build-mock-images.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@cfworker/json-schema": "^4.1.1",
+    "@modelcontextprotocol/sdk": "^1.30.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.140.0",
+    "zod": "^4.6.5"
+  }
+}

@@ -1,0 +1,5 @@
+# Copy to .dev.vars for `npm run dev` (never commit .dev.vars).
+YOUCAM_MOCK=1
+BOOKING_MOCK=1
+ADMIN_TOKEN=change-me-to-a-long-random-string
+# YOUCAM_API_KEY=your-key-from-the-youcam-api-console
