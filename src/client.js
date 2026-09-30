@@ -14,6 +14,9 @@ export function customerApp() {
     busy: false,
     slot: null, // { date, time, day, deposit }
     lastBooking: null,
+    skin: null, // { skin, scores?, cached } from /api/skin-check for the current photo
+    skinBusy: false,
+    skinError: null, // { message, code }
   };
 
   // Results (not selfies) are cached in sessionStorage by photo hash + look, so a
@@ -24,6 +27,12 @@ export function customerApp() {
     },
     set(key, value) {
       try { sessionStorage.setItem('look:' + key, value); } catch { /* full or blocked: memory cache still works */ }
+    },
+    getSkin(hash) {
+      try { return JSON.parse(sessionStorage.getItem('skin:' + hash) || 'null'); } catch { return null; }
+    },
+    setSkin(hash, value) {
+      try { sessionStorage.setItem('skin:' + hash, JSON.stringify(value)); } catch { /* memory only */ }
     },
   };
 
@@ -114,16 +123,101 @@ export function customerApp() {
       state.hash = hash;
       state.results = new Map();
       state.current = null;
+      state.skin = resultCache.getSkin(hash);
+      state.skinError = null;
       for (const look of state.config.looks) {
         const cached = resultCache.get(hash + ':' + look.id);
         if (cached) state.results.set(look.id, cached);
       }
       $('before').src = dataUrl;
+      renderSkin();
       renderLooks();
       renderStage();
       show('studio');
     } catch (err) {
       setError('startErr', err.message && err.message.length < 120 ? err.message : "We couldn't open that photo. Try a JPEG from your camera.");
+    }
+  }
+
+  // ---- skin check -----------------------------------------------------------
+
+  const LEVEL_TEXT = { low: 'Low', some: 'Some', noticeable: 'Noticeable' };
+  const CONCERN_TEXT = { redness: 'Redness', acne: 'Spots / bumps', texture: 'Texture', oiliness: 'Oiliness' };
+
+  function renderSkin() {
+    const box = $('skinBody');
+    const cfg = state.config.skin || {};
+    box.replaceChildren();
+    $('skinCard').classList.toggle('has-result', Boolean(state.skin));
+    if (state.skinBusy) {
+      box.append(el('p', { class: 'skin-busy' }, el('span', { class: 'spinner small' }), 'Checking your skin with YouCam AI Skin Analysis…'));
+      return;
+    }
+    if (state.skin) {
+      const s = state.skin.skin;
+      box.append(el('p', { class: 'skin-head', text: s.headline }));
+      const chips = el('ul', { class: 'levels', 'aria-label': 'What the photo showed' });
+      for (const [k, v] of Object.entries(s.levels)) {
+        chips.append(el('li', { class: 'lv ' + v }, el('span', { text: CONCERN_TEXT[k] || k }), el('b', { text: LEVEL_TEXT[v] || v })));
+      }
+      box.append(chips);
+      box.append(el('p', { class: 'skin-finish' }, el('b', { text: 'Finish: ' }), s.finish.text));
+      for (const n of s.nudges) box.append(el('p', { class: 'skin-nudge', text: n }));
+      box.append(el('h4', { text: 'Aftercare' }));
+      box.append(el('ul', { class: 'aftercare' }, ...s.aftercare.map((t) => el('li', { text: t }))));
+      if (state.skin.scores) {
+        const bits = Object.entries(state.skin.scores).map(([k, v]) => (CONCERN_TEXT[k] || k).toLowerCase() + ' ' + v);
+        box.append(el('p', { class: 'muted small', text: 'YouCam raw scores, 1–100, higher = calmer skin: ' + bits.join(', ') + '. Only on this phone, until you close the tab.' }));
+      }
+      box.append(el('p', { class: 'disclaimer', text: s.disclaimer }));
+      return;
+    }
+    box.append(el('p', { class: 'muted', text: 'Runs YouCam AI Skin Analysis on this same photo for redness, bumps, texture and oiliness, then suggests a guard, a finish and aftercare. No extra photo, nothing stored.' }));
+    if (state.skinError) {
+      box.append(el('p', { class: 'error', role: 'alert', text: state.skinError.message }));
+      if (['error_src_face_too_small', 'error_src_face_out_of_bound'].includes(state.skinError.code)) {
+        box.append(el('label', { class: 'btn small' }, 'Take a close-up for the skin check',
+          el('input', { type: 'file', accept: 'image/*', capture: 'user', hidden: true, onchange: async (e) => {
+            const f = e.target.files && e.target.files[0];
+            e.target.value = '';
+            if (!f) return;
+            try {
+              const { dataUrl } = await preparePhoto(f);
+              runSkinCheck(dataUrl);
+            } catch (err) {
+              state.skinError = { message: err.message };
+              renderSkin();
+            }
+          } })));
+      }
+    }
+    const left = typeof cfg.checksLeft === 'number' ? cfg.checksLeft : null;
+    box.append(el('button', { id: 'skinBtn', class: 'btn', type: 'button', disabled: left === 0, onclick: () => runSkinCheck(state.selfie) },
+      left === 0 ? 'No skin checks left today' : 'Check my skin first'));
+  }
+
+  // `image` is the selfie itself, or a close-up used only for the skin check.
+  async function runSkinCheck(image) {
+    if (state.skinBusy || !image) return;
+    state.skinBusy = true;
+    state.skinError = null;
+    renderSkin();
+    try {
+      const res = await fetch('/api/skin-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (typeof data.checksLeft === 'number' && state.config.skin) state.config.skin.checksLeft = data.checksLeft;
+      if (!res.ok) throw Object.assign(new Error(data.error || 'The skin check did not work this time. Please try again.'), { code: data.code });
+      state.skin = data;
+      resultCache.setSkin(state.hash, { skin: data.skin, scores: data.scores, cached: true });
+    } catch (err) {
+      state.skinError = { message: err.message === 'Failed to fetch' ? 'No connection. Check your signal and try again.' : err.message, code: err.code };
+    } finally {
+      state.skinBusy = false;
+      renderSkin();
     }
   }
 
@@ -274,6 +368,10 @@ export function customerApp() {
     $('timesNote').textContent = '';
     setError('bookErr', '');
     $('consentRow').hidden = !state.config.sharing;
+    const note = state.skin && state.skin.skin.note;
+    $('bookSkin').hidden = !note;
+    $('bookSkin').textContent = note || '';
+    $('consentSkin').hidden = !note;
     renderDays();
     loadSoonest();
     show('book');
@@ -371,6 +469,7 @@ export function customerApp() {
           phone: $('phone').value,
           consent,
           image: consent ? state.results.get(look.id) : undefined,
+          skin: consent && state.skin ? { levels: state.skin.skin.levels } : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -396,14 +495,15 @@ export function customerApp() {
     const rows = [
       ['When', (b.day || b.date) + ' · ' + b.time + (b.ends ? '–' + b.ends : '')],
       ['Service', b.service + ' · ' + money(b.price)],
-      ['Where', state.config.business.address || '214 Kingsland Road, Dalston'],
+      ['Where', (state.config.business.address || 'Fade & Co.') + ' (fictional demo shop)'],
     ];
     if (b.deposit) rows.push(['Deposit', money(b.deposit)]);
     if (b.confirmation_sent_to) rows.push(['Confirmation', 'Sent to ' + b.confirmation_sent_to]);
+    if (state.skin) rows.push(['Finish', state.skin.skin.finish.guard ? state.skin.skin.finish.guard + ' guard, no razor' : 'Usual finish']);
     rows.push(['Booking ref', '#' + b.booking_id]);
     $('doneRows').replaceChildren(...rows.map(([k, v]) => el('div', { class: 'row' }, el('dt', { text: k }), el('dd', { text: v }))));
     $('doneNote').textContent = data.shared
-      ? 'Marcus can see this look before you arrive. We keep only this image, and delete it a week after your appointment.'
+      ? 'Marcus can see this look' + (data.skinShared ? ' and your skin-check summary' : '') + ' before you arrive. We keep only that, and delete it a week after your appointment.'
       : 'Show this screen to Marcus when you sit down.';
     const save = $('saveLook');
     save.href = image;
@@ -426,6 +526,12 @@ export function customerApp() {
     $('demo').hidden = !c.mock;
     $('mockNote').hidden = !c.mock;
     if (!c.bookingOnline && !c.bookingMock) $('offlineNote').hidden = false;
+    // Nothing can be picked until the customer has agreed to the photo being processed.
+    $('photoConsent').addEventListener('change', (e) => {
+      const ok = e.target.checked;
+      $('photoActions').classList.toggle('locked', !ok);
+      for (const id of ['cam', 'pick', 'demo']) $(id).disabled = !ok;
+    });
     for (const id of ['cam', 'pick']) {
       $(id).addEventListener('change', (e) => {
         const f = e.target.files && e.target.files[0];
@@ -535,6 +641,7 @@ export function adminApp() {
             el('p', { class: 'time', text: item.time + (item.ends ? '–' + item.ends : '') }),
             el('p', { class: 'who', text: item.customer }),
             el('p', { class: 'what', text: item.lookName + ' · ' + item.service }),
+            item.skinNote ? el('p', { class: 'skin-note', text: item.skinNote }) : null,
             el('p', { class: 'muted', text: 'Booking #' + item.bookingId }),
             el('button', { class: 'btn small', type: 'button', onclick: async () => {
               if (!confirm('Remove this look? The image is deleted.')) return;

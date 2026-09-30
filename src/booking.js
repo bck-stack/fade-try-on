@@ -130,7 +130,7 @@ export class MockBookingClient {
   async businessInfo() {
     return {
       name: 'Fade & Co.',
-      address: '214 Kingsland Road, Dalston, London',
+      address: 'Demo address, London',
       owner: 'Marcus',
       timezone: 'Europe/London',
       today: this.today,

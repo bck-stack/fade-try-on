@@ -16,8 +16,15 @@ BOOKING_MOCK = "0"
 BOOKING_MCP_URL = "https://chair-ready-voice.fadeandco.workers.dev/mcp"
 # Free try-ons per visitor per day (each real try costs 2-4 YouCam units).
 TRY_LIMIT = "8"
-# Try-ons for the whole site per UTC day (1,000 hackathon units ≈ 250-500 tries).
+# Try-ons for the whole site per UTC day.
 DAILY_TRY_LIMIT = "40"
+# Skin checks per visitor per day (9 units each; failed checks don't count).
+SKIN_LIMIT = "2"
+# YouCam units the whole site may spend per UTC day, skin checks and try-ons together.
+# See "Unit budget" in docs/API-NOTES.md.
+DAILY_UNIT_LIMIT = "200"
+# YouCam units one visitor may use per UTC day (default = 2 x 9 + 8 x 4).
+VISITOR_UNIT_LIMIT = "50"
 # Optional: use photos of Marcus's own cuts as hairstyle references, per look id.
 # LOOK_REFS = '{"tapered-fade":"https://example.com/refs/tapered-fade.jpg"}'
 # Optional: pin exact YouCam template ids per look (see docs/API-NOTES.md).

@@ -8,7 +8,10 @@
     "dev": "wrangler dev",
     "test": "node --test test/*.test.js",
     "build:check": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
-    "mock-images": "node scripts/build-mock-images.mjs"
+    "mock-images": "node scripts/build-mock-images.mjs",
+    "screens": "node scripts/screens.mjs",
+    "video": "node scripts/demo-video.mjs",
+    "video:mp4": "sh scripts/webm-to-mp4.sh"
   },
   "engines": {
     "node": ">=20"
@@ -19,6 +22,7 @@
     "@modelcontextprotocol/sdk": "^1.30.1"
   },
   "devDependencies": {
+    "playwright": "^1.56.1",
     "wrangler": "^4.140.0",
     "zod": "^4.6.5"
   }
