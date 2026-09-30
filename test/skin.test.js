@@ -85,19 +85,19 @@ test('skin errors carry the task id and skin-specific wording', async () => {
 // ---- scores -> suggestions -----------------------------------------------------
 
 test('levelFor: thresholds at each boundary (raw_score, higher = healthier)', () => {
-  assert.deepEqual(THRESHOLDS, { noticeable: 40, some: 60 });
+  assert.deepEqual(THRESHOLDS, { noticeable: 65, some: 80 });
   assert.equal(levelFor(1), 'noticeable');
-  assert.equal(levelFor(39.99), 'noticeable');
-  assert.equal(levelFor(40), 'some');
-  assert.equal(levelFor(59.99), 'some');
-  assert.equal(levelFor(60), 'low');
+  assert.equal(levelFor(64.99), 'noticeable');
+  assert.equal(levelFor(65), 'some');
+  assert.equal(levelFor(79.99), 'some');
+  assert.equal(levelFor(80), 'low');
   assert.equal(levelFor(100), 'low');
   assert.equal(levelFor(undefined), null);
   assert.equal(levelFor(NaN), null);
 });
 
 test('readScores reads the format=json rows and the score_info.json shape, ignoring extras', () => {
-  assert.deepEqual(readScores(MOCK_SKIN_RESULTS), { redness: 34.61, acne: 52.18, texture: 66.9, oiliness: 71.35 });
+  assert.deepEqual(readScores(MOCK_SKIN_RESULTS), { redness: 58.4, acne: 72.1, texture: 86.9, oiliness: 84.3 });
   const zipShape = { redness: { raw_score: 72.01, ui_score: 77 }, hd_acne: { whole: { raw_score: 59.9, ui_score: 76 } }, pore: { raw_score: 10 }, all: { score: 75 }, skin_age: 37 };
   assert.deepEqual(readScores(zipShape), { redness: 72.01, acne: 59.9 });
   // Region rows other than "whole" are skipped.
@@ -151,7 +151,7 @@ test('MOCK skin check returns a realistic summary without spending units', async
   const { res, data } = await call(e, fastMock, 'POST', '/api/skin-check', { image: selfie });
   assert.equal(res.status, 200);
   assert.equal(data.skin.levels.redness, 'noticeable');
-  assert.deepEqual(data.scores, { redness: 35, acne: 52, texture: 67, oiliness: 71 });
+  assert.deepEqual(data.scores, { redness: 58, acne: 72, texture: 87, oiliness: 84 });
   assert.equal(data.checksLeft, 1);
   assert.equal(data.mock, true);
   assert.ok(![...e.LOOKS.data.keys()].some((k) => k.startsWith('units:')));

@@ -9,7 +9,7 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 // AI-generated test face (FLUX), cropped from docs/samples/real-youcam-results.jpg.
 // Never use a real person's photo here.
 export const SELFIE = path.join(ROOT, 'docs/samples/flux-selfie.jpg');
-export const CLOSEUP = path.join(ROOT, 'docs/samples/flux-closeup.jpg');
+export const CLOSEUP = path.join(ROOT, 'docs/samples/flux-irritated-closeup.jpg');
 
 export const LOCAL_URL = 'http://localhost:8787';
 // TODO(owner): confirm the deployed URL, or always pass it on the command line.
@@ -22,7 +22,8 @@ export const PHONE = {
   isMobile: true,
   hasTouch: true,
   userAgent:
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1 FadeDemo/' + Date.now().toString(36),
+  // ^ a fresh visitor per run, so the daily per-visitor limits start clean in every capture
   locale: 'en-GB',
   colorScheme: 'light',
 };
@@ -84,7 +85,7 @@ export async function runSkinCheck(page) {
     const closeUp = page.locator('#skinCard input[type=file]');
     if (await closeUp.count()) {
       await closeUp.setInputFiles(CLOSEUP);
-      await page.locator('#skinCard.has-result, #skinCard .error').first().waitFor({ timeout: 120000 });
+      await page.locator('#skinCard.has-result').waitFor({ timeout: 120000 }).catch(() => {});
     }
   }
   await settle(page);

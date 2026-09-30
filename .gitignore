@@ -1,5 +1,6 @@
-node_modules
-.wrangler
-.env*
 .dev.vars
+.env*
+.wrangler
+node_modules
 out
+out/

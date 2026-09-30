@@ -43,6 +43,6 @@ About 330 words of voice-over for 147 seconds, a comfortable pace.
 
 ## If something goes wrong on a live run
 
-- **"Face too small" on the skin check.** The script retries automatically with `docs/samples/flux-closeup.jpg`. If you narrate it: "Skin analysis needs the face to fill most of the photo, so it asks for a close-up just for this step. Failed checks cost nothing."
+- **"Face too small" on the skin check.** The script retries automatically with `docs/samples/flux-irritated-closeup.jpg`, a close crop of the same AI-generated face. If you narrate it: "Skin analysis needs the face to fill most of the photo, so it asks for a close-up just for this step. Failed checks cost nothing."
 - **"Hair too short" or "head turned" on a look.** The script stops. Re-run it: results already made are free, since they're cached per photo.
 - **Out of tries for the day.** Screenshots (5 looks) plus the video (3 looks) use exactly the default `TRY_LIMIT` of 8 for one visitor. Raise `TRY_LIMIT` in `wrangler.toml` for the recording day, or record from another network.

@@ -1,3 +1,4 @@
+import { PREVIEWS } from './previews.js';
 // The looks a customer can try, and the Fade & Co. service each one books.
 //
 // A look is one or more YouCam steps run in order on the customer's photo:
@@ -135,6 +136,7 @@ export function catalogue(services = SERVICES) {
       minutes: service.minutes,
       features: look.steps.map((s) => s.feature),
       units: lookUnits(look),
+      preview: PREVIEWS[look.id] || null,
     };
   });
 }

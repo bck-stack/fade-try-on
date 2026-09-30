@@ -378,10 +378,10 @@ export class MockYouCam {
 
 export const MOCK_SKIN_RESULTS = {
   output: [
-    { type: 'redness', region: 'whole', raw_score: 34.61, ui_score: 63, mask_urls: ['https://mock.invalid/redness_output.png'] },
-    { type: 'acne', region: 'whole', raw_score: 52.18, ui_score: 71, mask_urls: ['https://mock.invalid/acne_output.png'] },
-    { type: 'texture', region: 'whole', raw_score: 66.9, ui_score: 76, mask_urls: ['https://mock.invalid/texture_output.png'] },
-    { type: 'oiliness', region: 'whole', raw_score: 71.35, ui_score: 79, mask_urls: ['https://mock.invalid/oiliness_output.png'] },
+    { type: 'redness', region: 'whole', raw_score: 58.4, ui_score: 63, mask_urls: ['https://mock.invalid/redness_output.png'] },
+    { type: 'acne', region: 'whole', raw_score: 72.1, ui_score: 71, mask_urls: ['https://mock.invalid/acne_output.png'] },
+    { type: 'texture', region: 'whole', raw_score: 86.9, ui_score: 76, mask_urls: ['https://mock.invalid/texture_output.png'] },
+    { type: 'oiliness', region: 'whole', raw_score: 84.3, ui_score: 79, mask_urls: ['https://mock.invalid/oiliness_output.png'] },
     { type: 'skin_age', score: 29 },
     { type: 'all', score: 64.2 },
   ],

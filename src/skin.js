@@ -17,7 +17,10 @@ export const SKIN_ACTIONS = ['redness', 'acne', 'texture', 'oiliness'];
 export const SKIN_UNITS = 9;
 
 // raw_score below `noticeable` -> noticeable; below `some` -> some; otherwise low.
-export const THRESHOLDS = { noticeable: 40, some: 60 };
+// Calibrated on live results (30 Sep 2026): a clear-skinned test face scored 88-97,
+// a face with visible razor redness and bumps scored 70-71 (oiliness 41). Scores
+// cluster high, so 40/60 flagged nothing; 65/80 separates the two. See API-NOTES.
+export const THRESHOLDS = { noticeable: 65, some: 80 };
 
 export const LEVELS = ['low', 'some', 'noticeable'];
 

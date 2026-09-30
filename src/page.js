@@ -83,6 +83,7 @@ figcaption{font-size:.82rem;padding:.4rem .6rem;font-weight:600}
 .look.on{border-color:var(--red);box-shadow:0 0 0 2px var(--red)}
 .look .thumb{aspect-ratio:1/1;background:linear-gradient(135deg,var(--line),transparent);display:grid;place-items:center;overflow:hidden}
 .look .thumb img{width:100%;height:100%;object-fit:cover;object-position:50% 30%}
+.look .pv{position:relative;display:block;width:100%;height:100%}.look .pv img{opacity:.92}.look .pvtag{position:absolute;left:8px;bottom:8px;background:rgba(0,0,0,.62);color:#fff;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:3px 7px;border-radius:6px}
 .look .ph{font-family:ui-serif,Georgia,serif;font-size:1.05rem;color:var(--muted)}
 .look .name{font-weight:700;padding:.6rem .7rem 0;line-height:1.25}
 .look .meta{font-size:.8rem;color:var(--muted);padding:0 .7rem}
@@ -210,7 +211,7 @@ export function customerPage({ nonce }) {
     </div>
     <p id="startErr" class="error" role="alert" hidden></p>
     <ul class="tips" aria-label="Photo tips"><li>Look straight at the camera</li><li>Good light</li><li>Head and shoulders</li><li>Just you</li></ul>
-    <p class="privacy">${LOCK}<span>Your selfie is only used for the try-on: processed in memory, then deleted. We never store it.</span></p>
+    <p class="privacy">${LOCK}<span>Your selfie is only used for the skin check and try-ons: processed in memory, then deleted. We never store it.</span></p>
     <p id="mockNote" class="note" hidden>Mock mode: results are sample illustrations and no YouCam units are used.</p>
     <p id="offlineNote" class="note" hidden>The diary is offline right now, so prices shown are the usual ones. You can still try looks.</p>
   </section>

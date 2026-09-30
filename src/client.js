@@ -228,7 +228,7 @@ export function customerApp() {
     box.replaceChildren();
     for (const look of state.config.looks) {
       const tried = state.results.get(look.id);
-      const thumb = tried ? el('img', { src: tried, alt: '' }) : el('span', { class: 'ph', text: look.features.includes('beard') && !look.features.includes('hair') ? 'Beard' : look.features.length > 1 ? 'Cut + beard' : 'Cut' });
+      const thumb = tried ? el('img', { src: tried, alt: '' }) : look.preview ? el('span', { class: 'pv' }, el('img', { src: look.preview, alt: '' }), el('span', { class: 'pvtag', text: 'Example' })) : el('span', { class: 'ph', text: look.features.includes('beard') && !look.features.includes('hair') ? 'Beard' : look.features.length > 1 ? 'Cut + beard' : 'Cut' });
       box.append(
         el('button', {
           class: 'look' + (state.current === look.id ? ' on' : '') + (tried ? ' tried' : ''),
@@ -495,7 +495,7 @@ export function customerApp() {
     const rows = [
       ['When', (b.day || b.date) + ' · ' + b.time + (b.ends ? '–' + b.ends : '')],
       ['Service', b.service + ' · ' + money(b.price)],
-      ['Where', (state.config.business.address || 'Fade & Co.') + ' (fictional demo shop)'],
+      ['Where', /fictional/i.test(state.config.business.address || '') ? state.config.business.address : (state.config.business.address || 'Fade & Co.') + ' (fictional demo shop)'],
     ];
     if (b.deposit) rows.push(['Deposit', money(b.deposit)]);
     if (b.confirmation_sent_to) rows.push(['Confirmation', 'Sent to ' + b.confirmation_sent_to]);

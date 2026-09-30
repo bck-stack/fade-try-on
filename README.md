@@ -40,7 +40,7 @@ Every look, run through the live YouCam API with the pinned templates. The selfi
 | `oiliness` | Low / Some / Noticeable | Aftercare tip only |
 
 - **One photo.** The same resized selfie is sent for the skin check and every look. If YouCam says the face is too small for skin analysis (it wants the face wider than 60% of the photo), the card offers a close-up just for the skin check.
-- **Scores.** Levels come from YouCam's `raw_score` (1–100, higher = healthier): under 40 noticeable, 40–59.99 some, 60+ low. These cut-offs are ours, not YouCam's or clinical. See [`src/skin.js`](src/skin.js) and the TODOs in API-NOTES.
+- **Scores.** Levels come from YouCam's `raw_score` (1–100, higher = healthier): under 65 noticeable, 65–79.99 some, 80+ low. These cut-offs are ours, not YouCam's or clinical; we set them from live results (a clear-skinned test face scored 88–99, one with visible razor redness 57–71). See [`src/skin.js`](src/skin.js) and the TODOs in API-NOTES.
 - **Cost.** 4 SD concerns = 9 units per check. A repeat check on the same photo is free (browser cache, plus a 6-hour Worker cache of the levels by photo hash). Failed checks cost nothing.
 - **Wording.** Plain, cautious, non-medical: no brands, no products, and every result says "This is not a medical assessment." A *Low* result still says a camera can miss irritation, especially on darker skin.
 

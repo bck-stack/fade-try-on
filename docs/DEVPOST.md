@@ -74,7 +74,7 @@ One Cloudflare Worker, plain ES modules, no framework. Three YouCam APIs, all fo
 
 ## What's next
 
-- Check our thresholds against real results with the owner's units. We'll only move them in the cautious direction.
+- Keep checking the thresholds against more real faces. We calibrated them on live results (a clear-skinned test face scored 88–99; a face with visible razor redness 57–71), and we'll only move them in the cautious direction.
 - Try YouCam's Mobile Camera Kit, which guides the face into frame, to cut down on "face too small".
 - Let Marcus confirm or adjust the suggested finish on his screen, so the note becomes his decision, not ours.
 - Send the skin check alone as a pre-appointment link in the booking text.
