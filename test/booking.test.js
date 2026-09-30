@@ -119,10 +119,12 @@ test('availability: soonest days, and times for a chosen date, for the look\'s s
 });
 
 test('book with consent: books the look\'s service and stores only the chosen image', async () => {
+  // A date in the future, so the one-week expiry check doesn't depend on today's date.
+  const date = new Date(Date.now() + 3 * 86400 * 1000).toISOString().slice(0, 10);
   const fake = fakeBookingServer();
   const e = env();
   const { res, data } = await call(e, { mcpFetch: fake.fetch }, 'POST', '/api/book', {
-    lookId: 'fade-and-anchor', date: '2026-09-29', time: '14:00', customer: 'Sam Okafor', phone: '07700 900123', consent: true, image: lookImage,
+    lookId: 'fade-and-anchor', date, time: '14:00', customer: 'Sam Okafor', phone: '07700 900123', consent: true, image: lookImage,
   });
   assert.equal(res.status, 200);
   assert.equal(data.booking.booking_id, 501);
@@ -132,7 +134,7 @@ test('book with consent: books the look\'s service and stores only the chosen im
   assert.equal(fake.state.calls.at(-1).args.service, 'Cut + Beard');
 
   const keys = [...e.LOOKS.data.keys()].filter((k) => k.startsWith('look:'));
-  assert.deepEqual(keys, ['look:2026-09-29T14:00:501']);
+  assert.deepEqual(keys, [`look:${date}T14:00:501`]);
   const stored = e.LOOKS.data.get(keys[0]);
   assert.equal(stored.metadata.lookName, 'Tapered Fade + Anchor Beard');
   assert.equal(stored.metadata.hasImage, true);

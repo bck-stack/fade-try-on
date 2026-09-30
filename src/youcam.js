@@ -1,20 +1,27 @@
-// YouCam API (Perfect Corp) client for the hair and beard try-on features.
+// YouCam API (Perfect Corp) client for the skin check and the hair and beard try-on features.
 //
 // Flow per the docs (https://docs.perfectcorp.com/develop/quick_start_guide):
 //   1. POST /s2s/v2.0/file              -> file_id + presigned upload request
 //   2. PUT  <requests[0].url>           -> upload the selfie bytes
-//   3. POST /s2s/v2.1/task/hair-transfer or /s2s/v2.0/task/beard-style -> task_id
+//   3. POST /s2s/v2.1/task/skin-analysis, /s2s/v2.1/task/hair-transfer or
+//      /s2s/v2.0/task/beard-style                                  -> task_id
 //   4. GET  <same path>/{task_id}       -> poll until task_status is success | error
-//   5. GET  results.url                 -> result image (URL valid for 2 hours)
+//   5. GET  results.url                 -> result image (URL valid for 2 hours);
+//      skin analysis with format=json returns the scores inline in results.output
 //   6. POST /s2s/v2.0/task/delete       -> remove the task, its input selfie and output
 // Endpoints, parameters and unit costs are listed in docs/API-NOTES.md.
 
 import { MOCK_IMAGES, MOCK_IMAGE_TYPE } from './mock-images.js';
 import { base64ToBytes } from './util.js';
+import { SKIN_ACTIONS } from './skin.js';
 
 export const YOUCAM_BASE_URL = 'https://yce-api-01.makeupar.com';
 
 export const FEATURES = {
+  skin: {
+    label: 'skin check',
+    run: '/s2s/v2.1/task/skin-analysis',
+  },
   hair: {
     label: 'hairstyle',
     run: '/s2s/v2.1/task/hair-transfer',
@@ -56,24 +63,36 @@ const MESSAGES = {
   timeout: 'That took too long. Please try again.',
 };
 
+// Skin Analysis has stricter photo rules than the try-ons (face wider than 60% of the
+// photo, short side at least 480px, even light), so some codes need their own wording.
+const SKIN_MESSAGES = {
+  error_src_face_too_small:
+    'For the skin check your face needs to fill most of the photo. Your try-ons still work with this one; take a close-up just for the skin check.',
+  error_src_face_out_of_bound: 'Part of your face is out of the frame. Take a close-up with your whole face in view.',
+  error_lighting_dark: 'The photo is too dark for the skin check. Face a window or a bright light and try again.',
+  error_below_min_image_size: 'That photo is too small for the skin check. Try a sharper one.',
+};
+
 // Photo problems the customer can fix vs. problems on our side.
 const PHOTO_ERRORS = new Set([
   'error_no_face', 'error_face_pose', 'error_large_face_angle', 'error_pose', 'error_hair_too_short',
   'error_src_face_too_small', 'error_insufficient_landmarks', 'error_face_parsing', 'error_no_shoulder',
   'error_multiple_people', 'error_nsfw_content_detected', 'exceed_nsfw_retry_limits', 'error_bald_image',
   'exceed_max_filesize', 'error_exceed_max_image_size', 'error_below_min_image_size', 'error_unsupport_ratio',
-  'error_decode_image',
+  'error_decode_image', 'error_src_face_out_of_bound', 'error_lighting_dark',
 ]);
 
 export class YouCamError extends Error {
-  constructor(code, detail, { status } = {}) {
+  constructor(code, detail, { status, feature } = {}) {
     super(detail ? `${code}: ${detail}` : code);
     this.name = 'YouCamError';
     this.code = code;
     this.status = status;
+    this.feature = feature;
   }
 
   get userMessage() {
+    if (this.feature === 'skin') return SKIN_MESSAGES[this.code] || MESSAGES[this.code] || 'The skin check did not work this time. Please try again.';
     return MESSAGES[this.code] || 'Something went wrong with the try-on. Please try again.';
   }
 
@@ -214,8 +233,8 @@ export class YouCamClient {
   }
 
   // Step 4. Polling is required: the docs warn a task times out (units still spent)
-  // if nobody polls it.
-  async waitForTask(feature, taskId) {
+  // if nobody polls it. Returns the task's `data` once it reports success.
+  async pollTask(feature, taskId) {
     const path = `${FEATURES[feature].run}/${encodeURIComponent(taskId)}`;
     const deadline = this.now() + this.timeoutMs;
     let transientFailures = 0;
@@ -230,16 +249,19 @@ export class YouCamClient {
         throw err;
       }
       const data = json?.data || {};
-      if (data.task_status === 'success') {
-        const url = data.results?.url || data.results?.[0]?.url || data.result?.url;
-        if (!url) throw new YouCamError('bad_result', 'success without results.url');
-        return url;
-      }
+      if (data.task_status === 'success') return data;
       if (data.task_status === 'error') {
-        throw new YouCamError(data.error || 'unknown_internal_error', data.error_message);
+        throw new YouCamError(data.error || 'unknown_internal_error', data.error_message, { feature });
       }
     }
-    throw new YouCamError('timeout', `${feature} task ${taskId} still running`);
+    throw new YouCamError('timeout', `${feature} task ${taskId} still running`, { feature });
+  }
+
+  async waitForTask(feature, taskId) {
+    const data = await this.pollTask(feature, taskId);
+    const url = data.results?.url || data.results?.[0]?.url || data.result?.url;
+    if (!url) throw new YouCamError('bad_result', 'success without results.url');
+    return url;
   }
 
   // Step 5.
@@ -289,6 +311,27 @@ export class YouCamClient {
     }
   }
 
+  // Skin check on the same photo the try-ons use: upload, run AI Skin Analysis (SD,
+  // format=json so the scores come back inline, no ZIP), poll. Returns the raw
+  // `results` object plus the task id so the caller can delete the task right away.
+  async analyzeSkin({ bytes, contentType }, { actions = SKIN_ACTIONS } = {}) {
+    const taskIds = [];
+    try {
+      const fileId = await this.uploadImage(bytes, contentType);
+      const taskId = await this.runTask('skin', { src_file_id: fileId, dst_actions: actions, format: 'json' });
+      taskIds.push(taskId);
+      const data = await this.pollTask('skin', taskId);
+      // A success is billed even if we can't use its results, so hand back whatever came
+      // (the caller counts the units and treats an unreadable result as a failed check).
+      if (data.results == null) throw new YouCamError('bad_result', 'skin analysis success without results', { feature: 'skin' });
+      return { results: data.results, taskIds };
+    } catch (err) {
+      if (err instanceof YouCamError && !err.feature) err.feature = 'skin';
+      err.taskIds = taskIds;
+      throw err;
+    }
+  }
+
   // Remaining units (GET /s2s/v1.0/client/credit). Returns null if the call is refused.
   async getUnits() {
     try {
@@ -316,6 +359,14 @@ export class MockYouCam {
     return { bytes: base64ToBytes(b64), contentType: MOCK_IMAGE_TYPE, taskIds: [] };
   }
 
+  // Same shape as the documented format=json response (SD concerns, region "whole",
+  // plus skin_age / all rows and mask URLs we ignore). Scores are chosen so the demo
+  // shows the interesting case: noticeable redness, some bumps.
+  async analyzeSkin() {
+    await this.sleep(this.delayMs);
+    return { results: MOCK_SKIN_RESULTS, taskIds: [] };
+  }
+
   async deleteTask() {
     return true;
   }
@@ -324,6 +375,17 @@ export class MockYouCam {
     return null;
   }
 }
+
+export const MOCK_SKIN_RESULTS = {
+  output: [
+    { type: 'redness', region: 'whole', raw_score: 34.61, ui_score: 63, mask_urls: ['https://mock.invalid/redness_output.png'] },
+    { type: 'acne', region: 'whole', raw_score: 52.18, ui_score: 71, mask_urls: ['https://mock.invalid/acne_output.png'] },
+    { type: 'texture', region: 'whole', raw_score: 66.9, ui_score: 76, mask_urls: ['https://mock.invalid/texture_output.png'] },
+    { type: 'oiliness', region: 'whole', raw_score: 71.35, ui_score: 79, mask_urls: ['https://mock.invalid/oiliness_output.png'] },
+    { type: 'skin_age', score: 29 },
+    { type: 'all', score: 64.2 },
+  ],
+};
 
 export function sniffImageType(bytes) {
   if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';

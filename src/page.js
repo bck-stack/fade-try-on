@@ -120,6 +120,9 @@ label.field input{display:block;width:100%;margin-top:.3rem;min-height:48px;padd
 label.field input:focus{outline:none;border-color:var(--ink)}
 .consent{display:flex;gap:.7rem;align-items:flex-start;margin:1rem 0;font-size:.9rem}
 .consent input{width:22px;height:22px;flex:none;margin-top:.1rem;accent-color:var(--ink)}
+.photo-consent{max-width:34rem;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.7rem .8rem;margin:1.2rem 0 0}
+.actions.locked{opacity:.45}
+.actions.locked .btn{cursor:not-allowed}
 .done{max-width:560px}
 .done .look-card{background:var(--card);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin:1rem 0}
 .done .look-card img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover}
@@ -140,6 +143,27 @@ footer{max-width:1080px;margin:0 auto;padding:0 16px 40px;color:var(--muted);fon
 .card .btn{margin-top:.5rem}
 h2.day{margin:1.5rem 0 .6rem}
 .login{max-width:380px}
+/* skin check */
+.skin{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin:0 0 18px;border-top:4px solid var(--ok)}
+.skin h2{margin-bottom:.2rem}
+.skin .api{font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--ok);font-weight:700;margin:0 0 .5rem}
+.skin h4{margin:.8rem 0 .3rem;font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.skin-head{font-weight:700;font-size:1.05rem;margin-bottom:.6rem}
+.skin-busy{display:flex;gap:.6rem;align-items:center;color:var(--muted)}
+.spinner.small{width:20px;height:20px;border-width:3px;border-color:var(--line);border-top-color:var(--ink)}
+.levels{list-style:none;padding:0;margin:0 0 .7rem;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.lv{display:flex;justify-content:space-between;gap:.4rem;font-size:.85rem;padding:.35rem .6rem;border-radius:10px;border:1px solid var(--line)}
+.lv.noticeable{border-color:var(--red);background:rgba(184,50,42,.08)}
+.lv.noticeable b{color:var(--red)}
+.lv.some b{color:#8a5a00}
+.lv.low b{color:var(--ok)}
+.skin-finish{margin-bottom:.5rem}
+.skin-nudge{font-size:.92rem;border-left:3px solid var(--brass);padding-left:.6rem}
+.aftercare{margin:0 0 .6rem;padding-left:1.1rem;font-size:.92rem}
+.disclaimer{font-size:.82rem;color:var(--muted);font-style:italic;margin:0}
+.small{font-size:.8rem}
+.skin-note{font-size:.88rem;background:rgba(47,93,80,.1);border-left:3px solid var(--ok);padding:.25rem .5rem;border-radius:0 8px 8px 0;margin:.3rem 0}
+.book-skin{margin:.8rem 0 0;max-width:560px}
 `;
 
 const LOCK = `<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 1 1 6 0v3H9Z"/></svg>`;
@@ -175,13 +199,14 @@ export function customerPage({ nonce }) {
   const body = `
 <main>
   <section id="s-start" class="screen">
-    <p class="eyebrow">214 Kingsland Road · Dalston</p>
-    <h1>See the cut on your own face before you sit down.</h1>
-    <p class="lede">Take a selfie, try Marcus's actual cuts and beard shapes on yourself, then book the one you like at a time that's really free.</p>
-    <div class="actions">
-      <label class="btn primary">Take a selfie<input id="cam" type="file" accept="image/*" capture="user" hidden></label>
-      <label class="btn">Upload a photo<input id="pick" type="file" accept="image/*" hidden></label>
-      <button id="demo" class="btn ghost" type="button" hidden>Use the demo face</button>
+    <p class="eyebrow">Fade &amp; Co. · a fictional demo barbershop</p>
+    <h1>Check your skin, see the cut, then book it.</h1>
+    <p class="lede">One selfie: a quick skin check suggests a gentler guard or finish if your skin looks irritated, then you try the shop's cuts and beard shapes on yourself and book the one you like.</p>
+    <label class="consent photo-consent" id="photoConsentRow"><input id="photoConsent" type="checkbox"><span>I'm 18 or over, and I agree to my photo being sent to the YouCam API for the skin check and try-ons. It's deleted from YouCam straight after each result, and never stored here.</span></label>
+    <div id="photoActions" class="actions locked">
+      <label class="btn primary">Take a selfie<input id="cam" type="file" accept="image/*" capture="user" hidden disabled></label>
+      <label class="btn">Upload a photo<input id="pick" type="file" accept="image/*" hidden disabled></label>
+      <button id="demo" class="btn ghost" type="button" hidden disabled>Use the demo face</button>
     </div>
     <p id="startErr" class="error" role="alert" hidden></p>
     <ul class="tips" aria-label="Photo tips"><li>Look straight at the camera</li><li>Good light</li><li>Head and shoulders</li><li>Just you</li></ul>
@@ -219,11 +244,16 @@ export function customerPage({ nonce }) {
         <p id="err" class="error" role="alert" hidden></p>
       </div>
       <div>
+        <section id="skinCard" class="skin" aria-labelledby="skinTitle">
+          <p class="api">YouCam AI Skin Analysis</p>
+          <h2 id="skinTitle">Skin check before the cut</h2>
+          <div id="skinBody" aria-live="polite"></div>
+        </section>
         <h2>Pick a look</h2>
         <p class="muted">Each look is a real Fade &amp; Co. service. Tap one to see it on you; looks you've tried are free to revisit.</p>
         <div id="looks" class="looks"></div>
         <p><button id="changePhoto" class="link" type="button">Use a different photo</button></p>
-        <p class="privacy">${LOCK}<span>Your selfie is processed in memory and deleted after each try-on. Results stay on this phone until you close the tab.</span></p>
+        <p class="privacy">${LOCK}<span>Your selfie is processed in memory and deleted from YouCam after each try-on and skin check. Results stay on this phone until you close the tab.</span></p>
       </div>
     </div>
     <div class="sticky"><button id="bookBtn" class="btn primary wide" type="button" disabled>Try a look, then book it</button></div>
@@ -232,6 +262,7 @@ export function customerPage({ nonce }) {
   <section id="s-book" class="screen book" hidden>
     <p><button id="backToStudio" class="link" type="button">← Back to looks</button></p>
     <div class="summary"><img id="bookThumb" alt=""><div><h2 id="bookLook"></h2><p id="bookService"></p></div></div>
+    <p id="bookSkin" class="skin-note book-skin" hidden></p>
     <h3>Soonest free</h3>
     <div id="soonest" class="chips"></div>
     <h3>Or pick a day</h3>
@@ -243,7 +274,7 @@ export function customerPage({ nonce }) {
       <p class="muted" id="slotDeposit"></p>
       <label class="field">Your name<input id="name" name="name" autocomplete="name" required minlength="2" maxlength="80"></label>
       <label class="field">Mobile number<input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required placeholder="07…"></label>
-      <label class="consent" id="consentRow"><input id="consent" type="checkbox"><span>Send this look to Marcus so he can see it before I sit down. Only this image is kept (never my selfie), and it's deleted a week after the appointment.</span></label>
+      <label class="consent" id="consentRow"><input id="consent" type="checkbox"><span>Send this look<span id="consentSkin" hidden> and my one-line skin-check summary</span> to Marcus so he can see it before I sit down. Only that is kept (never my selfie or skin scores), and it's deleted a week after the appointment.</span></label>
       <button id="confirm" class="btn primary wide" type="submit">Book it</button>
     </form>
     <p id="bookErr" class="error" role="alert" hidden></p>
@@ -260,7 +291,7 @@ export function customerPage({ nonce }) {
     </div>
   </section>
 </main>
-<footer>Fade &amp; Co. · 214 Kingsland Road, Dalston, London · Try-on by the YouCam API · <a href="/admin" style="color:inherit">Staff</a></footer>`;
+<footer>Fade &amp; Co. is a fictional one-chair barbershop used as a demo customer. Skin check and try-on by the YouCam API. · <a href="/admin" style="color:inherit">Staff</a></footer>`;
   return shell({
     title: 'Fade & Co. Try-On',
     description: "Try Fade & Co.'s cuts and beard shapes on your own face, then book the look.",

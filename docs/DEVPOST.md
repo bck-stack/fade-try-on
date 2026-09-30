@@ -1,74 +1,87 @@
 # Fade & Co. Try-On
 
-**See the cut on your own face before you book it.**
+**A skin check before the cut: YouCam AI Skin Analysis tells the barber whether a close foil or razor finish is a bad idea today, then the customer tries the cut on their own face and books it.**
+
+> **Fade & Co. is a fictional one-chair barbershop** that we use as the demo customer, shared with our Chair Ready Voice project. "Marcus", its owner, is fictional too. Nothing below describes a real shop we visited or watched. The test face in every screenshot and in the video is AI-generated (FLUX) or a drawn illustration, never a real person.
 
 ## Inspiration
 
-Fade & Co. is a one-chair barbershop at 214 Kingsland Road in Dalston, London. Marcus runs it on his own. Watching a day in the shop, the slowest part of most appointments isn't the cut. It's the first two minutes: "shorter on the sides… no, not like that", or a customer holding up a phone with a photo of a footballer who has completely different hair.
+Close cuts are hard on skin. Skin fades, line-ups and clean shaves take the hair right down to the skin, and the razor and foil finishes that make them look sharp are what cause trouble.
 
-Barbers work from pictures because words don't carry length, shape or how a fade sits against someone's head. The picture the customer actually needs is of *themselves*. The YouCam API can produce that picture, so we built the smallest useful thing around it: try the shop's real services on your own face, pick one, and book it at a time the chair is free.
+The medical name for razor bumps is *pseudofolliculitis barbae*. DermNet describes it as a common inflammatory reaction of the hair follicle, most often on the face as a result of shaving. It is more likely with curly and coarse hair, is linked to close shaving, and is more common with blade razors than electric shavers ([DermNet: Pseudofolliculitis barbae](https://dermnetnz.org/topics/pseudofolliculitis-barbae)). The NHS says you may be more likely to get ingrown hairs if you have coarse or curly hair, that the best way to prevent them is not shaving, and suggests an electric razor over wet shaving ([NHS: Ingrown hairs](https://www.nhs.uk/conditions/ingrown-hairs/)).
+
+So the decisions that matter for irritation are barbershop decisions: which guard to finish on, foil, razor or neither, and a beard trim instead of a clean shave. They're usually made by eye, once the customer is in the chair. We wanted the barber to have that information earlier, from the selfie the customer already takes to try on cuts: skin analysis that changes the service, not a product sale.
 
 ## What it does
 
 On their phone, a customer:
 
-1. **Takes or uploads a selfie.** The page resizes it to 1000px and re-encodes it as JPEG before anything leaves the phone, which also strips EXIF and GPS data.
-2. **Tries Fade & Co.'s looks.** There are seven looks, and each one is a real service on the price list: Tapered Fade and Textured Crop (Skin Fade, 45 min, £28), Side-Swept Undercut and Buzz Cut (Classic Cut, 30 min, £22), Anchor Beard and Goatee (Beard Trim & Shape, 20 min, £14), and Tapered Fade + Anchor Beard (Cut + Beard, 60 min, £38). There's no kids look on purpose: we never ask for a photo of a child.
-3. **Compares them.** There's a before/after slider you drag across your face, a side-by-side view, and an "all tried" grid for picking between looks. Looks you've already tried open instantly and don't cost anything again.
-4. **Books the look.** "Book this look · £38 · 60 min" shows the soonest free slots and a 14-day picker, then books through the shop's existing booking system (the Chair Ready Voice MCP server). Prices and durations come live from that server, so the try-on page never disagrees with the diary.
-5. **Shares it with Marcus, if they want.** A consent box (off by default) sends the chosen result image to Marcus. He opens a small "Incoming looks" page on his phone and sees who's coming, when, and the look they picked, before they sit down.
+1. **Agrees to how the photo is used.** A plain consent box comes before the camera opens: the photo goes to the YouCam API for the skin check and try-ons, is deleted from YouCam right after each result, and is never stored by us. The photo buttons stay disabled until the box is ticked.
+2. **Takes one selfie.** The page resizes it to 1000px and re-encodes it as JPEG on the phone, which strips EXIF and GPS data. The same photo serves every step.
+3. **Runs the skin check.** The "Skin check before the cut" card sends the photo to **YouCam AI Skin Analysis** for four concerns: redness, acne (spots and bumps), texture and oiliness. The card shows each as *Low*, *Some* or *Noticeable* and turns them into three things:
+   - **A finish suggestion.** For example: "Your photo showed noticeable redness. Consider a #1 guard instead of a foil or razor finish today."
+   - **A service nudge**, only for services on the shop's live price list: "If you were thinking of a clean shave, a Beard Trim & Shape (£14) is easier on the skin today." A hot-towel prep appears only if the shop sells one (Fade & Co. doesn't).
+   - **Two or three aftercare tips**, with no brands and no products: rinse with cool water and pat dry, a plain fragrance-free moisturiser, don't pick at bumps.
 
-The confirmation screen shows the chosen look alongside the booking (time, price, deposit if it's a Saturday, where the confirmation text went), so the customer can show it in the shop even if they didn't share it.
+   Every result ends with: "This is not a medical assessment. If your skin is sore, broken or infected, see a pharmacist or GP before a close shave."
+4. **Tries the shop's looks.** Seven looks, each a real service with its price: Tapered Fade and Textured Crop (Skin Fade, £28), Side-Swept Undercut and Buzz Cut (Classic Cut, £22), Anchor Beard and Goatee (Beard Trim & Shape, £14), and Tapered Fade + Anchor Beard (Cut + Beard, £38). They can compare them with a before/after slider, side by side, or in a grid of everything tried.
+5. **Books the look** at a time that's really free, through the shop's booking server.
+6. **Shares it with Marcus, if they choose.** The existing consent box on the booking form now covers the chosen look image *and* a one-line skin note. Marcus's "Incoming looks" page then shows, for example: "Skin check: noticeable redness, some spots or bumps. Suggested #1 guard, no razor." He sees it before the customer walks in. Without consent, the skin check never leaves the phone.
 
 ## How we built it
 
-- **One Cloudflare Worker**, plain ES modules, no framework. The pages are inline HTML and CSS. The browser code is written as ordinary functions and serialised into a nonce'd `<script>`, so the Content Security Policy doesn't need `unsafe-inline` for scripts.
-- **YouCam API**, following the documented flow: `POST /s2s/v2.0/file` to register the upload, `PUT` the bytes to the presigned URL, start a task, poll it, download the result. Hairstyles use **AI Hairstyle Generator v2.1** (`/s2s/v2.1/task/hair-transfer`); beards use **AI Beard Style Generator** (`/s2s/v2.0/task/beard-style`).
-- **Chaining for Cut + Beard.** The combined service is two YouCam tasks in a row. The hairstyle runs on the uploaded selfie, and its result URL goes straight into the beard task as `src_file_url`. One upload, two features, one image that matches the service Marcus will do.
-- **Marcus's own cuts as references.** The hairstyle endpoint accepts a reference photo (`ref_file_url`) as well as templates. Set `LOOK_REFS` and each look uses a photo of a cut Marcus has actually done, so a customer tries *his* skin fade rather than a stock one. Without it, each look uses a YouCam template we pinned after going through the live catalogue (`LOOK_TEMPLATES` overrides it without a code change).
-- **Keeping the customer's colour.** Some hairstyle templates would also recolour the hair. Where a template supports it (`keep_users_color`), we send `hair_color: "src"` so the preview shows the cut, not a dye job.
-- **Cleaning up after ourselves.** Once the result is downloaded, the Worker calls `POST /s2s/v2.0/task/delete`, which removes the task along with its input and output files. The selfie is gone from YouCam within seconds rather than the default 30 days.
-- **Booking over MCP.** The Worker uses the official `@modelcontextprotocol/sdk` client over Streamable HTTP (protocol 2025-11-25) to call `get_business_info`, `next_available`, `find_available_times` and `book_appointment`. That's the same server the shop's voice assistant uses, so a phone booking and a try-on booking can't collide.
-- **Storage.** A Cloudflare KV namespace (`LOOKS`) holds the chosen images (with consent) and the per-visitor try counters. Chosen looks expire a week after the appointment.
-- **MOCK mode.** `YOUCAM_MOCK=1` swaps the YouCam client for one that returns bundled sample illustrations (drawn as SVG and rasterised, no real faces), so the app, the tests and the demo all run without a key or units. `BOOKING_MOCK=1` does the same for the diary.
-- **Tests** run with `npm test` (node:test, 59 tests, no network). They use a fake YouCam API that follows the documented request and response shapes, and a fake MCP server built from the SDK's own server classes.
+One Cloudflare Worker, plain ES modules, no framework. Three YouCam APIs, all following the documented flow: register a file, upload to the presigned URL, start a task, poll it, read the result, delete the task.
+
+**YouCam APIs and endpoints**
+
+| API | Docs category | Endpoints |
+|---|---|---|
+| **AI Skin Analysis** (v2.1) | Skin, Face & Body | `POST /s2s/v2.1/task/skin-analysis`, `GET /s2s/v2.1/task/skin-analysis/{task_id}` |
+| AI Hairstyle Generator (v2.1) | Hair & Beard | `POST /s2s/v2.1/task/hair-transfer`, `GET …/{task_id}`, `GET /s2s/v2.1/task/template/hair-transfer` |
+| AI Beard Style Generator | Hair & Beard | `POST /s2s/v2.0/task/beard-style`, `GET …/{task_id}`, `GET /s2s/v2.0/task/template/beard-style` |
+| File API | Utility | `POST /s2s/v2.0/file`, then `PUT` to the presigned URL |
+| Task delete | Utility | `POST /s2s/v2.0/task/delete` |
+| Unit balance (staff view) | Utility | `GET /s2s/v1.0/client/credit` |
+
+- **Skin Analysis request.** `{ src_file_id, dst_actions: ["redness", "acne", "texture", "oiliness"], format: "json" }`. These are four SD concerns, the cheapest tier (1–4 concerns = 9 units). We chose them because they're the ones that change a barber's decision; pores, wrinkles and eye bags don't. `format: "json"` returns the scores inline, so the Worker doesn't have to download and unzip a results archive.
+- **Reading the scores.** Each concern has a `raw_score` and a `ui_score` from 1 to 100, where higher means healthier skin. The docs say `ui_score` is adjusted upwards on purpose, as "a psychological motivator", so we use `raw_score`. Below 40 is *Noticeable*, 40 to under 60 is *Some*, 60 and above is *Low*. These cut-offs are ours, not YouCam's, and our write-up says so. The mapping is a small pure function (`src/skin.js`) with a test at every boundary.
+- **Hair and beard.** Each look pins a template id we checked against the live catalogue. Cut + Beard chains two tasks: the beard task runs on the hairstyle task's result URL.
+- **Booking over MCP.** The Worker uses the official `@modelcontextprotocol/sdk` client (Streamable HTTP) to talk to the Chair Ready Voice booking server for prices, free times and bookings.
+- **Storage.** Workers KV holds consented looks and skin notes (deleted a week after the appointment), usage counters, and a six-hour cache of skin *levels* keyed by a photo hash.
+- **MOCK mode.** `YOUCAM_MOCK=1` returns bundled illustrations for the looks and a skin result in the exact documented `format=json` shape, so the app, the tests and the demo run with no key and no units.
+- **Tests.** `npm test` runs 82 node:test tests with no network, against a fake YouCam API that speaks the documented shapes. The new skin tests cover the request body, every threshold boundary, both result formats, consent gating, "no charge on failure", and that the task is deleted after success and after failure.
 
 ## Challenges we ran into
 
-- **Short hair is the hard case.** The hairstyle engine has an `error_hair_too_short` code, and a barbershop's regulars are exactly the people with short hair. We couldn't fix the model, so we made the failure useful: the message tells the customer that beard looks still work, or to use a photo from before their last cut, and the failed attempt doesn't count against their free tries.
-- **Input limits differ per feature.** Hairstyles want JPEG with the long side at most 1024px, beards want it under 1024px with the face wider than 256px, and both want a straight-on head. We resize on the phone to fit the strictest limit, check the JPEG header on the server, and turn each documented error code into one plain sentence the customer can act on.
-- **Polling inside a Worker.** YouCam tasks are asynchronous, and the docs warn that a task nobody polls times out while still using units. The Worker polls every 3 seconds with a deadline, retries brief 429/5xx responses, and still deletes the task when a later step fails.
-- **Matching a barber's menu to a template catalogue.** We built most of this before we had units, so looks first described what they wanted as keywords. When we listed the live catalogue (116 hairstyles, 15 beards), keyword matching turned out to be risky: "fade" could land on "Pink Blue Fade", and there is no short boxed beard or stubble template at all. So every look now pins a template id we checked by hand, the menu was renamed to match what the model actually draws (Anchor Beard, Goatee), and keywords are only a fallback.
-- **Workers aren't Node.** The MCP SDK's default JSON Schema validator compiles code with `new Function`, which Workers forbid. We switched to the SDK's Cloudflare validator. Wrangler's bundler also inserts `__name()` calls into functions, which broke our serialised browser code until we added a one-line shim.
-- **Privacy vs. usefulness.** Marcus wants to see the look, but nobody wants their selfie sitting on a barbershop's server. The answer was to store only the generated image, only on an explicit opt-in, with a fixed expiry, and never the phone number.
+- **Our first version didn't qualify.** Hairstyle and beard are both under *Hair & Beard* in the YouCam docs, not Skin or Fashion. Rather than bolt on an unrelated API, we looked for the barbershop problem a Skin API could actually help with. That became the skin check.
+- **The skin check wants a different photo from the hairstyle.** Skin Analysis needs the face wider than 60% of the image, while the hairstyle engine needs the shoulders in shot (`error_no_shoulder`). One selfie can't always satisfy both. We don't hide this: if YouCam answers `error_src_face_too_small`, the card explains and offers "Take a close-up for the skin check". That close-up is used for the skin check only, and a failed check costs nothing (the Skin Analysis docs say units are only used on success).
+- **Redness on darker skin.** The NHS notes that redness from ingrown hairs may be harder to see on black or brown skin, and DermNet says razor bumps predominantly affect men of African ancestry. So the people who most need this check are the ones a redness score may under-read. We can't fix the model, so a *Low* result never reads as an all-clear: it says a camera can miss irritation, especially on darker skin, and asks the customer to tell the barber if their skin often reacts.
+- **Not sounding like a doctor.** Every sentence the card can show lives in one tested file: guards and services, generic aftercare, no brands, no diagnoses, and the disclaimer on every result.
+- **Units.** A skin check costs 9 units, more than a Cut + Beard (4). We added a site-wide daily unit cap, cache results by photo, and only count a check once it returns a result.
 
 ## Accomplishments that we're proud of
 
-- The whole loop works end to end: selfie, try-on, compare, a real free slot from the real diary, a booking, and Marcus seeing the look. It runs in mock mode on any laptop with `npm run dev`.
-- Every look maps to a service with a real price and duration, and the booking goes through the same system as the shop's phone line.
-- The selfie is never stored by us, and the YouCam copy is deleted as soon as we have the result.
-- It works one-handed on a phone: big targets, a draggable slider, and a sticky "Book this look" button that always shows the price and time.
+- The skin check changes what happens in the chair. It gives a guard number, "no razor", or a beard trim instead of a shave, and the barber gets it before the customer arrives.
+- Privacy got stricter, not looser, with the new feature. The selfie is still never stored. Each YouCam task, including the skin analysis, is deleted as soon as we've read it. Raw scores are shown to the customer once and never stored. Marcus gets one derived line, only with consent, and it expires with the look.
+- The server rebuilds Marcus's note from the levels, so a tampered request can't put its own words on his screen.
 
 ## What we learned
 
-- The YouCam APIs share one shape (file → task → poll → result) across features, which made chaining two features in one request straightforward.
-- Reading the unit table early changed the design. Hairstyle v2.1 and beard each cost 2 units, so a combined look is 4, and caching, per-visitor caps and "failed tries don't count" all came from doing that sum.
-- MCP turned out to be a practical way to share one booking backend between very different front ends: a voice agent and a web page.
-- Error codes are UX. Most of the work in "what happens when it fails" was writing sentences, not code.
+- Read a score's definition before building on it. YouCam's `ui_score` is deliberately flattering, which is fine for a beauty app but wrong for a caution flag. Our logic uses `raw_score`.
+- Unit tiers shape the product: four concerns cost 9 units, five cost 12, so "which four matter to a barber?" was a design question.
+- The shared file → task → poll → delete flow meant the Skin API needed one new client method, nothing else.
+- Honest limits make better UX: the close-up fallback and the darker-skin caveat both came from reading the docs carefully.
 
 ## What's next
 
-- Run the real-API pass with the hackathon units: pin template IDs per look and photograph Marcus's own cuts for `LOOK_REFS`.
-- Use the YouCam webhook instead of polling, so the Worker doesn't hold a request open.
-- Add AI Hair Color for grey blending, once Marcus decides whether to offer it.
-- Put a QR code on the shop window that opens the try-on page with the demo face ready.
-- Offer the waitlist (`join_waitlist` on the same MCP server) when a day is full.
-- Let Marcus add a note to an incoming look ("bring clippers #1") that shows on the confirmation text.
+- Check our thresholds against real results with the owner's units. We'll only move them in the cautious direction.
+- Try YouCam's Mobile Camera Kit, which guides the face into frame, to cut down on "face too small".
+- Let Marcus confirm or adjust the suggested finish on his screen, so the note becomes his decision, not ours.
+- Send the skin check alone as a pre-appointment link in the booking text.
 
 ## Built with
 
-- YouCam API (AI Hairstyle Generator v2.1, AI Beard Style Generator, File API, Task delete, unit info)
+- **YouCam API:** AI Skin Analysis v2.1, AI Hairstyle Generator v2.1, AI Beard Style Generator, File API, task delete, unit balance
 - Cloudflare Workers, Workers KV, Wrangler
-- Model Context Protocol: `@modelcontextprotocol/sdk` client, Streamable HTTP, protocol 2025-11-25
-- JavaScript (ES modules), HTML, CSS
-- node:test
+- Model Context Protocol: `@modelcontextprotocol/sdk`, Streamable HTTP
+- JavaScript (ES modules), HTML, CSS; node:test; Playwright (screenshots and video)

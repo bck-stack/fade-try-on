@@ -5,8 +5,16 @@
 // consent we keep a text-only record (look name + booking) so Marcus still knows what
 // was asked for. Records expire a week after the appointment.
 //
+// The skin-check summary follows the same rule as the image: stored only with consent,
+// only as one derived line for Marcus (never the YouCam scores), and it expires with
+// the look.
+//
 // Keys:  look:<YYYY-MM-DD>T<HH:MM>:<booking_id>   value = image bytes ('' if none)
 //        quota:<visitor>:<YYYY-MM-DD>             value = tries used today
+//        skinq:<visitor>:<YYYY-MM-DD>             value = skin checks run today
+//        units:<visitor>:<YYYY-MM-DD>             value = YouCam units this visitor used today
+//        units:site:<YYYY-MM-DD>                  value = YouCam units spent today (whole site)
+//        skin:<sha256 of photo>                   value = skin levels, kept 6 hours
 
 const KEEP_AFTER_APPOINTMENT_DAYS = 7;
 const MIN_TTL_SECONDS = 24 * 3600;
@@ -30,7 +38,7 @@ export class LookStore {
     return Boolean(this.kv);
   }
 
-  async save({ booking, look, customer, image, now = Date.now() }) {
+  async save({ booking, look, customer, image, skin = null, now = Date.now() }) {
     if (!this.kv) return null;
     const key = lookKey(booking);
     const metadata = {
@@ -47,6 +55,8 @@ export class LookStore {
       contentType: image ? image.contentType : null,
       createdAt: new Date(now).toISOString(),
     };
+    // KV metadata is capped at 1024 bytes; the note is at most 160 characters.
+    if (skin) metadata.skinNote = skin.note;
     await this.kv.put(key, image ? image.bytes : '', {
       metadata,
       expirationTtl: expiryFor(booking.date, now),
@@ -87,13 +97,14 @@ export class LookStore {
 const memoryQuota = new Map();
 
 export class TryQuota {
-  constructor(kv, limit) {
+  constructor(kv, limit, prefix = 'quota') {
     this.kv = kv;
     this.limit = limit;
+    this.prefix = prefix;
   }
 
   key(visitor, now = Date.now()) {
-    return `quota:${visitor}:${new Date(now).toISOString().slice(0, 10)}`;
+    return `${this.prefix}:${visitor}:${new Date(now).toISOString().slice(0, 10)}`;
   }
 
   async used(visitor, now) {
@@ -106,9 +117,13 @@ export class TryQuota {
     return Math.max(0, this.limit - (await this.used(visitor, now)));
   }
 
-  async spend(visitor, now) {
+  async fits(visitor, amount, now) {
+    return (await this.used(visitor, now)) + amount <= this.limit;
+  }
+
+  async spend(visitor, now, amount = 1) {
     const key = this.key(visitor, now);
-    const next = (await this.used(visitor, now)) + 1;
+    const next = (await this.used(visitor, now)) + amount;
     if (!this.kv) memoryQuota.set(key, next);
     else await this.kv.put(key, String(next), { expirationTtl: 2 * 86400 });
     return Math.max(0, this.limit - next);
